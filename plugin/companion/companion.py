@@ -5,6 +5,7 @@ import io
 import json
 import os
 import secrets
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -93,15 +94,62 @@ class BrowserController:
         page.wait_for_timeout(350)
         return self.page_state(page, clicked=True, x=x, y=y)
 
+    def click_text(self, text: str) -> dict[str, Any]:
+        page = self.ensure()
+        target = page.get_by_text(text, exact=False).first
+        target.click(timeout=10000)
+        page.wait_for_timeout(350)
+        return self.page_state(page, clicked_text=text)
+
     def type_text(self, text: str) -> dict[str, Any]:
         page = self.ensure()
-        page.keyboard.type(text)
+        page.keyboard.insert_text(text)
         page.wait_for_timeout(250)
         return self.page_state(page, typed=len(text))
 
+    def fill(self, text: str, target: str) -> dict[str, Any]:
+        page = self.ensure()
+        candidates = [
+            page.get_by_label(target, exact=False),
+            page.get_by_placeholder(target, exact=False),
+            page.get_by_role("textbox", name=target, exact=False),
+        ]
+        for candidate in candidates:
+            try:
+                if candidate.count() and candidate.first.is_visible():
+                    candidate.first.fill(text, timeout=10000)
+                    page.wait_for_timeout(250)
+                    return self.page_state(page, filled=target, typed=len(text))
+            except Exception:  # noqa: BLE001
+                continue
+        raise ValueError(f'No visible text field matched "{target}".')
+
+    def press(self, key: str) -> dict[str, Any]:
+        page = self.ensure()
+        page.keyboard.press(key)
+        page.wait_for_timeout(350)
+        return self.page_state(page, pressed=key)
+
     def snapshot(self) -> dict[str, Any]:
         page = self.ensure()
-        return self.page_state(page)
+        elements = page.locator(
+            "a, button, input, textarea, select, [role=button], [role=link], [role=textbox]"
+        ).evaluate_all(
+            """els => els.filter(el => {
+              const r = el.getBoundingClientRect();
+              const s = getComputedStyle(el);
+              return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';
+            }).slice(0, 80).map((el, index) => ({
+              index,
+              tag: el.tagName.toLowerCase(),
+              role: el.getAttribute('role') || '',
+              text: (el.innerText || el.value || '').trim().slice(0, 120),
+              label: el.getAttribute('aria-label') || '',
+              placeholder: el.getAttribute('placeholder') || '',
+              type: el.getAttribute('type') || ''
+            }))"""
+        )
+        return self.page_state(page, elements=elements)
 
 
 browser = BrowserController()
@@ -125,8 +173,14 @@ def run_operation(operation: str, args: dict[str, Any]) -> Any:
         return browser.navigate(str(args["url"]))
     if operation == "browser.click":
         return browser.click(float(args["x"]), float(args["y"]))
+    if operation == "browser.click_text":
+        return browser.click_text(str(args["text"]))
     if operation == "browser.type":
         return browser.type_text(str(args["text"]))
+    if operation == "browser.fill":
+        return browser.fill(str(args["text"]), str(args["target"]))
+    if operation == "browser.press":
+        return browser.press(str(args["key"]))
     if operation == "browser.snapshot":
         return browser.snapshot()
     if operation == "computer.snapshot":
@@ -139,17 +193,28 @@ def run_operation(operation: str, args: dict[str, Any]) -> Any:
         )
         return {"moved": True}
     if operation == "mouse.click":
+        if args.get("x") is not None and args.get("y") is not None:
+            pyautogui.moveTo(int(args["x"]), int(args["y"]), duration=0.2)
         pyautogui.click(
             button=str(args.get("button") or "left"),
             clicks=int(args.get("clicks") or 1),
         )
-        return {"clicked": True}
+        time.sleep(0.35)
+        return {**desktop_snapshot(), "clicked": True}
     if operation == "keyboard.type":
-        pyautogui.write(
-            str(args["text"]),
-            interval=float(args.get("interval") or 0),
+        text = str(args["text"])
+        subprocess.run(
+            ["powershell", "-NoProfile", "-Command", "Set-Clipboard -Value ([Console]::In.ReadToEnd())"],
+            input=text,
+            text=True,
+            check=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
-        return {"typed": len(str(args["text"]))}
+        pyautogui.hotkey("ctrl", "v")
+        if args.get("press_enter"):
+            pyautogui.press("enter")
+        time.sleep(0.35)
+        return {**desktop_snapshot(), "typed": len(text)}
     raise ValueError(f"Unsupported operation: {operation}")
 
 

@@ -112,7 +112,7 @@ async function sendCommand(pairingCode: string, operation: string, args: Record<
     const timer = setTimeout(() => {
       pending.delete(id);
       reject(new Error(`Timed out waiting for the local companion while running ${operation}.`));
-    }, 30_000);
+    }, 90_000);
 
     pending.set(id, { resolve, reject, timer });
     companion.socket.send(payload, (error) => {
@@ -251,14 +251,23 @@ function createPluginServer() {
     "chrome_click",
     {
       title: "Click in Chrome",
-      description: "Use this when the user wants to click a visible point in the controlled Chrome page.",
-      inputSchema: { session_token: z.string().optional(), x: z.number().nonnegative(), y: z.number().nonnegative() },
+      description: "Click a Chrome element by its visible text when possible. Use screenshot coordinates only when the element has no useful text.",
+      inputSchema: {
+        session_token: z.string().optional(),
+        element_text: z.string().optional(),
+        x: z.number().nonnegative().optional(),
+        y: z.number().nonnegative().optional(),
+      },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
-    async ({ session_token, x, y }) => {
-      const result = (await sendCommand(getPairingCodeForSession(session_token), "browser.click", { x, y })) as BrowserResult;
-      return browserToolResult(`Clicked Chrome at ${x}, ${y}. Use the updated screenshot to continue.`, result);
+    async ({ session_token, element_text, x, y }) => {
+      const operation = element_text ? "browser.click_text" : "browser.click";
+      if (!element_text && (x === undefined || y === undefined)) {
+        throw new Error("Provide element_text or both x and y.");
+      }
+      const result = (await sendCommand(getPairingCodeForSession(session_token), operation, element_text ? { text: element_text } : { x, y })) as BrowserResult;
+      return browserToolResult(element_text ? `Clicked “${element_text}”. Use the updated screenshot to continue.` : `Clicked Chrome at ${x}, ${y}. Use the updated screenshot to continue.`, result);
     },
   );
 
@@ -267,14 +276,30 @@ function createPluginServer() {
     "chrome_type",
     {
       title: "Type in Chrome",
-      description: "Use this when the user wants text typed into the currently focused field in controlled Chrome.",
-      inputSchema: { session_token: z.string().optional(), text: z.string().max(10_000) },
+      description: "Enter Unicode text in Chrome. Provide target with the field label or placeholder when the field is not already focused.",
+      inputSchema: { session_token: z.string().optional(), text: z.string().max(10_000), target: z.string().optional() },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
-    async ({ session_token, text }) => {
-      const result = (await sendCommand(getPairingCodeForSession(session_token), "browser.type", { text })) as BrowserResult;
+    async ({ session_token, text, target }) => {
+      const result = (await sendCommand(getPairingCodeForSession(session_token), target ? "browser.fill" : "browser.type", target ? { text, target } : { text })) as BrowserResult;
       return browserToolResult("Typed the requested text in Chrome. Use the updated screenshot to continue.", result);
+    },
+  );
+
+  registerAppTool(
+    server,
+    "chrome_press",
+    {
+      title: "Press a key in Chrome",
+      description: "Press a keyboard key such as Enter, Tab, Escape, ArrowDown, or Control+A in the controlled Chrome page.",
+      inputSchema: { session_token: z.string().optional(), key: z.string().min(1).max(80) },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
+    },
+    async ({ session_token, key }) => {
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "browser.press", { key })) as BrowserResult;
+      return browserToolResult(`Pressed ${key} in Chrome. Use the updated screenshot to continue.`, result);
     },
   );
 
@@ -291,9 +316,12 @@ function createPluginServer() {
     async ({ session_token }) => {
       const result = (await sendCommand(getPairingCodeForSession(session_token), "browser.snapshot", {})) as { base64?: string; width?: number; height?: number };
       if (!result?.base64) throw new Error("The local companion did not return a Chrome screenshot.");
+      const elements = Array.isArray((result as BrowserResult).elements)
+        ? JSON.stringify((result as BrowserResult).elements)
+        : "[]";
       return {
         content: [
-          { type: "text" as const, text: "Fresh Chrome screenshot." },
+          { type: "text" as const, text: `Fresh Chrome screenshot. Visible interactive elements: ${elements}` },
           { type: "image" as const, data: result.base64, mimeType: "image/png" },
         ],
         structuredContent: { mode: "chrome", width: result.width, height: result.height },
@@ -345,14 +373,20 @@ function createPluginServer() {
     "mouse_click",
     {
       title: "Click mouse",
-      description: "Use this when the user wants the AI to click on the paired computer.",
-      inputSchema: { session_token: z.string().optional(), button: z.enum(["left", "right", "middle"]).default("left"), clicks: z.number().int().min(1).max(3).default(1) },
+      description: "Click a desktop coordinate from the latest computer_snapshot. Coordinates must use the original screenshot width and height returned by that tool.",
+      inputSchema: { session_token: z.string().optional(), x: z.number().nonnegative().optional(), y: z.number().nonnegative().optional(), button: z.enum(["left", "right", "middle"]).default("left"), clicks: z.number().int().min(1).max(3).default(1) },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
-    async ({ session_token, button, clicks }) => {
-      await sendCommand(getPairingCodeForSession(session_token), "mouse.click", { button, clicks });
-      return { content: [{ type: "text" as const, text: `Clicked the ${button} mouse button.` }] };
+    async ({ session_token, x, y, button, clicks }) => {
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "mouse.click", { x, y, button, clicks })) as BrowserResult;
+      return {
+        content: [
+          { type: "text" as const, text: `Clicked the ${button} mouse button${x !== undefined && y !== undefined ? ` at ${x}, ${y}` : ""}.` },
+          ...(result.base64 ? [{ type: "image" as const, data: result.base64, mimeType: "image/png" }] : []),
+        ],
+        structuredContent: { mode: "computer", width: result.width, height: result.height },
+      };
     },
   );
 
@@ -361,14 +395,20 @@ function createPluginServer() {
     "keyboard_type",
     {
       title: "Type on the computer",
-      description: "Use this when the user wants the AI to type text into the currently focused desktop application.",
-      inputSchema: { session_token: z.string().optional(), text: z.string().max(10_000), interval: z.number().min(0).max(1).optional() },
+      description: "Paste Unicode text, including Hebrew, into the focused desktop field. Optionally press Enter afterward.",
+      inputSchema: { session_token: z.string().optional(), text: z.string().max(10_000), press_enter: z.boolean().optional() },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
-    async ({ session_token, text, interval }) => {
-      await sendCommand(getPairingCodeForSession(session_token), "keyboard.type", { text, interval });
-      return { content: [{ type: "text" as const, text: "Typed the requested text on the paired computer." }] };
+    async ({ session_token, text, press_enter }) => {
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "keyboard.type", { text, press_enter })) as BrowserResult;
+      return {
+        content: [
+          { type: "text" as const, text: "Pasted the requested Unicode text on the paired computer." },
+          ...(result.base64 ? [{ type: "image" as const, data: result.base64, mimeType: "image/png" }] : []),
+        ],
+        structuredContent: { mode: "computer", width: result.width, height: result.height },
+      };
     },
   );
 
