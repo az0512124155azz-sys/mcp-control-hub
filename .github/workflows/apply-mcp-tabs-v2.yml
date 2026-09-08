@@ -1,11 +1,12 @@
 name: Apply MCP tabs v2
+
 on:
   push:
     branches: [main]
-    paths:
-      - tools/apply_mcp_tabs_v2.py
+
 permissions:
   contents: write
+
 jobs:
   apply:
     runs-on: ubuntu-latest
