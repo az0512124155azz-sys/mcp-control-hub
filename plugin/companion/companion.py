@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pyautogui
+import pygetwindow
 import websocket
 from playwright.sync_api import BrowserContext, Page, sync_playwright
 
@@ -154,16 +155,54 @@ class BrowserController:
 
 
 browser = BrowserController()
+desktop_capture_origin = (0, 0)
 
 
-def desktop_snapshot() -> dict[str, Any]:
-    shot = pyautogui.screenshot()
+def desktop_windows() -> list[str]:
+    return sorted(
+        {
+            window.title.strip()
+            for window in pygetwindow.getAllWindows()
+            if window.title.strip() and window.width > 0 and window.height > 0
+        }
+    )
+
+
+def desktop_snapshot(window_title: str | None = None) -> dict[str, Any]:
+    global desktop_capture_origin
+    selected_title = None
+    if window_title:
+        matches = [
+            window
+            for window in pygetwindow.getAllWindows()
+            if window_title.casefold() in window.title.casefold()
+            and window.width > 0
+            and window.height > 0
+        ]
+        if not matches:
+            raise ValueError(f'No visible desktop window matched "{window_title}".')
+        window = matches[0]
+        if window.isMinimized:
+            window.restore()
+        window.activate()
+        time.sleep(0.4)
+        left = max(0, window.left)
+        top = max(0, window.top)
+        width = min(window.width, pyautogui.size().width - left)
+        height = min(window.height, pyautogui.size().height - top)
+        desktop_capture_origin = (left, top)
+        selected_title = window.title
+        shot = pyautogui.screenshot(region=(left, top, width, height))
+    else:
+        desktop_capture_origin = (0, 0)
+        shot = pyautogui.screenshot()
     buf = io.BytesIO()
     shot.save(buf, format="PNG")
     return {
         "base64": base64.b64encode(buf.getvalue()).decode("ascii"),
         "width": shot.width,
         "height": shot.height,
+        "window_title": selected_title,
     }
 
 
@@ -185,7 +224,9 @@ def run_operation(operation: str, args: dict[str, Any]) -> Any:
     if operation == "browser.snapshot":
         return browser.snapshot()
     if operation == "computer.snapshot":
-        return desktop_snapshot()
+        return desktop_snapshot(str(args["window_title"]) if args.get("window_title") else None)
+    if operation == "computer.windows":
+        return {"windows": desktop_windows()}
     if operation == "mouse.move":
         pyautogui.moveTo(
             int(args["x"]),
@@ -195,7 +236,11 @@ def run_operation(operation: str, args: dict[str, Any]) -> Any:
         return {"moved": True}
     if operation == "mouse.click":
         if args.get("x") is not None and args.get("y") is not None:
-            pyautogui.moveTo(int(args["x"]), int(args["y"]), duration=0.2)
+            pyautogui.moveTo(
+                int(args["x"]) + desktop_capture_origin[0],
+                int(args["y"]) + desktop_capture_origin[1],
+                duration=0.2,
+            )
         pyautogui.click(
             button=str(args.get("button") or "left"),
             clicks=int(args.get("clicks") or 1),

@@ -331,23 +331,42 @@ function createPluginServer() {
 
   registerAppTool(
     server,
-    "computer_snapshot",
+    "computer_windows",
     {
-      title: "See the computer screen",
-      description: "Use this when the AI needs a fresh screenshot of the paired computer before interacting with desktop apps.",
+      title: "List desktop windows",
+      description: "List visible desktop window titles before taking a desktop screenshot. Use a returned title with computer_snapshot to avoid capturing the Claude or ChatGPT window.",
       inputSchema: sessionSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
     async ({ session_token }) => {
-      const result = (await sendCommand(getPairingCodeForSession(session_token), "computer.snapshot", {})) as { base64?: string; width?: number; height?: number };
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "computer.windows", {})) as { windows?: string[] };
+      return {
+        content: [{ type: "text" as const, text: `Visible desktop windows: ${JSON.stringify(result.windows || [])}` }],
+        structuredContent: { windows: result.windows || [] },
+      };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "computer_snapshot",
+    {
+      title: "See the computer screen",
+      description: "Capture a specific desktop app window. Call computer_windows first and pass window_title. Do not capture the Claude or ChatGPT window because that creates a recursive screenshot.",
+      inputSchema: { session_token: z.string().optional(), window_title: z.string().optional() },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
+    },
+    async ({ session_token, window_title }) => {
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "computer.snapshot", { window_title })) as BrowserResult;
       if (!result?.base64) throw new Error("The local companion did not return a desktop screenshot.");
       return {
         content: [
-          { type: "text" as const, text: "Fresh desktop screenshot." },
+          { type: "text" as const, text: window_title ? `Fresh screenshot of desktop window “${window_title}”. Coordinates are relative to this image.` : "Fresh full-desktop screenshot. Prefer passing a non-Claude window_title to avoid recursive captures." },
           { type: "image" as const, data: result.base64, mimeType: "image/png" },
         ],
-        structuredContent: { mode: "computer", width: result.width, height: result.height },
+        structuredContent: { mode: "computer", width: result.width, height: result.height, window_title: result.window_title },
       };
     },
   );
