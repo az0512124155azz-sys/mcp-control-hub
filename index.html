@@ -350,7 +350,7 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
       <div class="section-heading">
         <span class="kicker">02 · Interactive install</span>
         <h2>בחר AI ומערכת הפעלה — וקבל הגדרה מוכנה</h2>
-        <p>GPT, Codex, Claude, Cursor, VS Code, Windsurf, Cline ועוד. בחר Windows, macOS או Linux — והאתר יכין עבורך קובץ הגדרה מוכן להורדה.</p>
+        <p>GPT, Codex, Claude, Cursor, VS Code, Windsurf, Cline ועוד. בחר Windows, macOS או Linux — הורד מתקין אוטומטי וקובץ הגדרה מוכן. אין יותר נתיבי דוגמה שצריך לערוך ידנית.</p>
       </div>
 
       <div class="guide-shell">
@@ -372,22 +372,24 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
         </div>
 
         <div class="path-grid">
-          <label>
-            <span>נתיב הפרויקט אצלך</span>
-            <input id="project-root" dir="ltr" value="C:\Users\you\mcp-control-hub" />
-          </label>
+          <div class="path-box">
+            <span>התקנה מקומית</span>
+            <code id="install-location" dir="ltr"></code>
+          </div>
           <div class="path-box">
             <span>קובץ ההגדרות</span>
             <code id="config-path" dir="ltr"></code>
           </div>
         </div>
 
+        <div class="info-box"><strong>אין יותר נתיב שצריך לערוך.</strong> המתקין מזהה לבד את התיקייה שממנה הפעלת אותו, מתקין את השרתים למיקום קבוע במחשב, וקובצי ההגדרה שמורידים מהאתר כבר מכוונים למיקום הקבוע הזה.</div>
+
         <p class="guide-note" id="client-note"></p>
         <div id="client-extra"></div>
 
         <div class="two-code-columns">
           <div class="code-card">
-            <div class="code-head"><span>1 · Install</span><button class="copy-button" type="button" data-copy-target="install-code">העתק</button></div>
+            <div class="code-head"><span>1 · התקנה אוטומטית</span><div class="code-actions"><a class="download-button" id="download-installer" href="downloads/MCP-Control-Hub-Local.zip" download>הורד חבילת התקנה</a><button class="copy-button" type="button" data-copy-target="install-code">העתק</button></div></div>
             <pre><code id="install-code"></code></pre>
           </div>
           <div class="code-card">
@@ -487,7 +489,7 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
   let os = "windows";
   let client = "claude";
 
-  const rootInput = document.getElementById("project-root");
+  const installLocationEl = document.getElementById("install-location");
   const configPathEl = document.getElementById("config-path");
   const clientNoteEl = document.getElementById("client-note");
   const clientExtraEl = document.getElementById("client-extra");
@@ -495,39 +497,52 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
   const configCodeEl = document.getElementById("config-code");
   const configCardTitleEl = document.getElementById("config-card-title");
   const downloadConfigButton = document.getElementById("download-config");
+  const downloadInstallerButton = document.getElementById("download-installer");
   const stepsListEl = document.getElementById("steps-list");
 
-  function winJoin(root, tail) {
-    return `${root.replace(/[\\/]+$/, "")}\\${tail.replaceAll("/", "\\")}`;
+  function installLocation(currentOs) {
+    return currentOs === "windows" ? "%LOCALAPPDATA%\\MCP-Control-Hub" : "~/.mcp-control-hub";
   }
 
-  function unixJoin(root, tail) {
-    return `${root.replace(/\/+$/, "")}/${tail}`;
-  }
-
-  function makeEntries(currentOs, root, currentClient = client) {
-    const join = currentOs === "windows" ? winJoin : unixJoin;
-    const python = currentOs === "windows"
-      ? join(root, "servers/computer-mcp/.venv/Scripts/python.exe")
-      : join(root, "servers/computer-mcp/.venv/bin/python");
-
-    const allEntries = {
-      "browser-dual-control": {
-        type: "stdio",
-        command: "node",
-        args: [join(root, "servers/browser-mcp/dist/index.js")],
-      },
-      "computer-control": {
-        type: "stdio",
-        command: python,
-        args: [join(root, "servers/computer-mcp/server.py")],
-        env: {
-          MCP_COMPUTER_ALLOW_SCREENSHOTS: "1",
-          MCP_COMPUTER_ALLOW_ACTIONS: "1",
-          MCP_COMPUTER_ACTION_PAUSE: "0.05",
+  function makeEntries(currentOs, currentClient = client) {
+    let allEntries;
+    if (currentOs === "windows") {
+      allEntries = {
+        "browser-dual-control": {
+          type: "stdio",
+          command: "cmd.exe",
+          args: ["/d", "/s", "/c", "node \"%LOCALAPPDATA%\\MCP-Control-Hub\\servers\\browser-mcp\\dist\\index.js\""]
         },
-      },
-    };
+        "computer-control": {
+          type: "stdio",
+          command: "cmd.exe",
+          args: ["/d", "/s", "/c", "\"%LOCALAPPDATA%\\MCP-Control-Hub\\servers\\computer-mcp\\.venv\\Scripts\\python.exe\" \"%LOCALAPPDATA%\\MCP-Control-Hub\\servers\\computer-mcp\\server.py\""],
+          env: {
+            MCP_COMPUTER_ALLOW_SCREENSHOTS: "1",
+            MCP_COMPUTER_ALLOW_ACTIONS: "1",
+            MCP_COMPUTER_ACTION_PAUSE: "0.05"
+          }
+        }
+      };
+    } else {
+      allEntries = {
+        "browser-dual-control": {
+          type: "stdio",
+          command: "sh",
+          args: ["-lc", "node \"$HOME/.mcp-control-hub/servers/browser-mcp/dist/index.js\""]
+        },
+        "computer-control": {
+          type: "stdio",
+          command: "sh",
+          args: ["-lc", "\"$HOME/.mcp-control-hub/servers/computer-mcp/.venv/bin/python\" \"$HOME/.mcp-control-hub/servers/computer-mcp/server.py\""],
+          env: {
+            MCP_COMPUTER_ALLOW_SCREENSHOTS: "1",
+            MCP_COMPUTER_ALLOW_ACTIONS: "1",
+            MCP_COMPUTER_ACTION_PAUSE: "0.05"
+          }
+        }
+      };
+    }
 
     if (currentClient === "terminal") {
       return { "computer-control": allEntries["computer-control"] };
@@ -550,8 +565,8 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
     return lines.join("\n").trim();
   }
 
-  function makeConfig(currentClient, currentOs, root) {
-    const entries = makeEntries(currentOs, root, currentClient);
+  function makeConfig(currentClient, currentOs) {
+    const entries = makeEntries(currentOs, currentClient);
 
     if (currentClient === "chatgpt") {
       return `ChatGPT / GPT setup
@@ -600,23 +615,23 @@ ${JSON.stringify({ mcpServers: terminalEntries }, null, 2)}`;
     return "<your-project>/.vscode/mcp.json";
   }
 
-  function installCommands(currentOs, root) {
-    const browserDir = currentOs === "windows"
-      ? winJoin(root, "servers/browser-mcp")
-      : unixJoin(root, "servers/browser-mcp");
-    const computerDir = currentOs === "windows"
-      ? winJoin(root, "servers/computer-mcp")
-      : unixJoin(root, "servers/computer-mcp");
-
+  function installCommands(currentOs) {
     if (currentOs === "windows") {
-      return `# PowerShell — Windows\ncd "${browserDir}"\nnpm install\nnpm run build\nnpx playwright install chromium\n\ncd "${computerDir}"\npython -m venv .venv\n.\\.venv\\Scripts\\python.exe -m pip install --upgrade pip\n.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt`;
+      return `# מתוך התיקייה שחילצת — אין צורך לשנות נתיב
+powershell -ExecutionPolicy Bypass -File .\INSTALL-WINDOWS.ps1`;
     }
-
     if (currentOs === "linux") {
-      return `# Terminal — Linux\n# Ubuntu / Debian: אם חסרות תלויות מערכת ל-PyAutoGUI\n# sudo apt update && sudo apt install -y python3-venv python3-tk scrot xclip\n\ncd "${browserDir}"\nnpm install\nnpm run build\nnpx playwright install chromium\n\ncd "${computerDir}"\npython3 -m venv .venv\n./.venv/bin/python -m pip install --upgrade pip\n./.venv/bin/python -m pip install -r requirements.txt`;
+      return `# מתוך התיקייה שחילצת — אין צורך לשנות נתיב
+chmod +x ./INSTALL-LINUX.sh
+./INSTALL-LINUX.sh`;
     }
+    return `# מתוך התיקייה שחילצת — אין צורך לשנות נתיב
+chmod +x ./INSTALL-MACOS.sh
+./INSTALL-MACOS.sh`;
+  }
 
-    return `# Terminal — macOS\ncd "${browserDir}"\nnpm install\nnpm run build\nnpx playwright install chromium\n\ncd "${computerDir}"\npython3 -m venv .venv\n./.venv/bin/python -m pip install --upgrade pip\n./.venv/bin/python -m pip install -r requirements.txt`;
+  function installerFile() {
+    return "downloads/MCP-Control-Hub-Local.zip";
   }
 
   function configFileName(currentClient) {
@@ -653,14 +668,14 @@ ${JSON.stringify({ mcpServers: terminalEntries }, null, 2)}`;
       : `לחץ על ‘הורד קובץ’ כדי להוריד את <code dir=\"ltr\">${configFileName(client)}</code>. אין צורך ליצור את הקובץ ידנית. לאחר ההורדה מקם אותו בנתיב שמופיע למעלה.`;
 
     stepsListEl.innerHTML = `
-      <li><strong>התקן ב-${system}.</strong> הרץ רק את פקודות ההתקנה שמופיעות כרגע — הן מותאמות למערכת שבחרת.</li>
+      <li><strong>הורד וחלץ את חבילת ההתקנה.</strong> פתח Terminal בתוך התיקייה שחולצה. אין צורך להעתיק או לשנות שום נתיב — הרץ את פקודת המתקין שמופיעה למעלה.</li>
       <li><strong>הורד את קובץ ההגדרה.</strong> ${downloadStep}</li>
       <li><strong>אשר הרשאות ב-${system}.</strong> ${permissionStep}</li>
       <li><strong>הפעל מחדש את ${clients[client].label}.</strong> לאחר מכן בקש מה-AI לבדוק אילו כלי MCP זמינים.${client === "terminal" ? " במצב Terminal מחובר בכוונה רק Computer Control MCP." : ""}</li>`;
   }
 
   function downloadConfig() {
-    const content = makeConfig(client, os, rootInput.value.trim());
+    const content = makeConfig(client, os);
     const filename = configFileName(client);
     const mime = filename.endsWith(".json") ? "application/json" : filename.endsWith(".toml") ? "application/toml" : "text/plain";
     const blob = new Blob([content], { type: `${mime};charset=utf-8` });
@@ -707,13 +722,17 @@ ${JSON.stringify({ mcpServers: terminalEntries }, null, 2)}`;
   }
 
   function render() {
-    const root = rootInput.value.trim();
+    installLocationEl.textContent = installLocation(os);
     configPathEl.textContent = configPath(client, os);
     clientNoteEl.textContent = clients[client].note;
-    installCodeEl.textContent = installCommands(os, root);
-    configCodeEl.textContent = makeConfig(client, os, root);
+    installCodeEl.textContent = installCommands(os);
+    configCodeEl.textContent = makeConfig(client, os);
     configCardTitleEl.textContent = client === "chatgpt" ? "2 · קובץ הוראות מוכן" : `2 · ${configFileName(client)} מוכן להורדה`;
     downloadConfigButton.textContent = client === "chatgpt" ? "הורד הוראות" : `הורד ${configFileName(client)}`;
+    const installer = installerFile(os);
+    downloadInstallerButton.href = installer;
+    downloadInstallerButton.setAttribute("download", installer);
+    downloadInstallerButton.textContent = "הורד חבילת התקנה";
     renderExtra();
     renderSteps();
   }
@@ -722,11 +741,6 @@ ${JSON.stringify({ mcpServers: terminalEntries }, null, 2)}`;
     button.addEventListener("click", () => {
       os = button.dataset.os;
       document.querySelectorAll("[data-os]").forEach((item) => item.classList.toggle("active", item === button));
-      rootInput.value = os === "windows"
-        ? "C:\\Users\\you\\mcp-control-hub"
-        : os === "mac"
-          ? "/Users/you/mcp-control-hub"
-          : "/home/you/mcp-control-hub";
       render();
     });
   });
@@ -739,7 +753,6 @@ ${JSON.stringify({ mcpServers: terminalEntries }, null, 2)}`;
     });
   });
 
-  rootInput.addEventListener("input", render);
   downloadConfigButton.addEventListener("click", downloadConfig);
 
   document.querySelectorAll("[data-copy-target]").forEach((button) => {
