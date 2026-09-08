@@ -41,8 +41,16 @@ class BrowserController:
         self._page: Page | None = None
 
     def ensure(self) -> Page:
-        if self._page and not self._page.is_closed():
-            return self._page
+        if self._page:
+            try:
+                if not self._page.is_closed():
+                    # Touch the browser connection so a closed context is not
+                    # mistaken for a usable page.
+                    self._page.title()
+                    return self._page
+            except Exception:  # noqa: BLE001
+                self._page = None
+                self._context = None
         if self._pw is None:
             self._pw = sync_playwright().start()
         profile = APP_DIR / "chrome-profile"
@@ -58,34 +66,42 @@ class BrowserController:
         self._page = pages[0] if pages else self._context.new_page()
         return self._page
 
-    def open(self) -> dict[str, Any]:
-        page = self.ensure()
-        return {"url": page.url}
-
-    def navigate(self, url: str) -> dict[str, Any]:
-        page = self.ensure()
-        page.goto(url, wait_until="domcontentloaded", timeout=30000)
-        return {"url": page.url, "title": page.title()}
-
-    def click(self, x: float, y: float) -> dict[str, Any]:
-        page = self.ensure()
-        page.mouse.click(x, y)
-        return {"clicked": True, "x": x, "y": y}
-
-    def type_text(self, text: str) -> dict[str, Any]:
-        page = self.ensure()
-        page.keyboard.type(text)
-        return {"typed": len(text)}
-
-    def snapshot(self) -> dict[str, Any]:
-        page = self.ensure()
+    @staticmethod
+    def page_state(page: Page, **extra: Any) -> dict[str, Any]:
         png = page.screenshot(type="png")
         return {
+            **extra,
             "base64": base64.b64encode(png).decode("ascii"),
             "width": page.viewport_size["width"] if page.viewport_size else None,
             "height": page.viewport_size["height"] if page.viewport_size else None,
             "url": page.url,
+            "title": page.title(),
         }
+
+    def open(self) -> dict[str, Any]:
+        page = self.ensure()
+        return self.page_state(page)
+
+    def navigate(self, url: str) -> dict[str, Any]:
+        page = self.ensure()
+        page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        return self.page_state(page)
+
+    def click(self, x: float, y: float) -> dict[str, Any]:
+        page = self.ensure()
+        page.mouse.click(x, y)
+        page.wait_for_timeout(350)
+        return self.page_state(page, clicked=True, x=x, y=y)
+
+    def type_text(self, text: str) -> dict[str, Any]:
+        page = self.ensure()
+        page.keyboard.type(text)
+        page.wait_for_timeout(250)
+        return self.page_state(page, typed=len(text))
+
+    def snapshot(self) -> dict[str, Any]:
+        page = self.ensure()
+        return self.page_state(page)
 
 
 browser = BrowserController()

@@ -41,6 +41,33 @@ const companions = new Map<string, Companion>();
 const sessions = new Map<string, { pairingCode: string; lastUsed: number }>();
 const pending = new Map<string, Pending>();
 
+type BrowserResult = {
+  base64?: string;
+  width?: number;
+  height?: number;
+  url?: string;
+  title?: string;
+  [key: string]: unknown;
+};
+
+function browserToolResult(message: string, result: BrowserResult) {
+  return {
+    content: [
+      { type: "text" as const, text: message },
+      ...(result.base64
+        ? [{ type: "image" as const, data: result.base64, mimeType: "image/png" }]
+        : []),
+    ],
+    structuredContent: {
+      mode: "chrome",
+      url: result.url,
+      title: result.title,
+      width: result.width,
+      height: result.height,
+    },
+  };
+}
+
 function normalizePairingCode(value: string) {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
@@ -198,8 +225,8 @@ function createPluginServer() {
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
     async ({ session_token }) => {
-      const result = await sendCommand(getPairingCodeForSession(session_token), "browser.open", {});
-      return { content: [{ type: "text" as const, text: "Chrome is open and ready." }], structuredContent: { mode: "chrome", result } };
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "browser.open", {})) as BrowserResult;
+      return browserToolResult("Chrome is open and ready. Use the screenshot to continue.", result);
     },
   );
 
@@ -214,8 +241,8 @@ function createPluginServer() {
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
     async ({ session_token, url }) => {
-      const result = await sendCommand(getPairingCodeForSession(session_token), "browser.navigate", { url });
-      return { content: [{ type: "text" as const, text: `Opened ${url} in Chrome.` }], structuredContent: { mode: "chrome", url, result } };
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "browser.navigate", { url })) as BrowserResult;
+      return browserToolResult(`Opened ${url} in Chrome. Use the screenshot to continue.`, result);
     },
   );
 
@@ -230,8 +257,8 @@ function createPluginServer() {
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
     async ({ session_token, x, y }) => {
-      await sendCommand(getPairingCodeForSession(session_token), "browser.click", { x, y });
-      return { content: [{ type: "text" as const, text: `Clicked Chrome at ${x}, ${y}.` }] };
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "browser.click", { x, y })) as BrowserResult;
+      return browserToolResult(`Clicked Chrome at ${x}, ${y}. Use the updated screenshot to continue.`, result);
     },
   );
 
@@ -246,8 +273,8 @@ function createPluginServer() {
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
     async ({ session_token, text }) => {
-      await sendCommand(getPairingCodeForSession(session_token), "browser.type", { text });
-      return { content: [{ type: "text" as const, text: "Typed the requested text in Chrome." }] };
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "browser.type", { text })) as BrowserResult;
+      return browserToolResult("Typed the requested text in Chrome. Use the updated screenshot to continue.", result);
     },
   );
 
