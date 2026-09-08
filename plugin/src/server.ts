@@ -206,6 +206,7 @@ function createPluginServer() {
       description: "Use this when the user wants to click a visible point in the controlled Chrome page.",
       inputSchema: { session_token: z.string(), x: z.number().nonnegative(), y: z.number().nonnegative() },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
     },
     async ({ session_token, x, y }) => {
       await sendCommand(getPairingCodeForSession(session_token), "browser.click", { x, y });
@@ -221,6 +222,7 @@ function createPluginServer() {
       description: "Use this when the user wants text typed into the currently focused field in controlled Chrome.",
       inputSchema: { session_token: z.string(), text: z.string().max(10_000) },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
     },
     async ({ session_token, text }) => {
       await sendCommand(getPairingCodeForSession(session_token), "browser.type", { text });
@@ -282,6 +284,7 @@ function createPluginServer() {
       description: "Use this when the user wants the AI to move the mouse pointer on the paired computer.",
       inputSchema: { session_token: z.string(), x: z.number().nonnegative(), y: z.number().nonnegative(), duration: z.number().min(0).max(5).optional() },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
     },
     async ({ session_token, x, y, duration }) => {
       await sendCommand(getPairingCodeForSession(session_token), "mouse.move", { x, y, duration });
@@ -297,6 +300,7 @@ function createPluginServer() {
       description: "Use this when the user wants the AI to click on the paired computer.",
       inputSchema: { session_token: z.string(), button: z.enum(["left", "right", "middle"]).default("left"), clicks: z.number().int().min(1).max(3).default(1) },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
     },
     async ({ session_token, button, clicks }) => {
       await sendCommand(getPairingCodeForSession(session_token), "mouse.click", { button, clicks });
@@ -312,6 +316,7 @@ function createPluginServer() {
       description: "Use this when the user wants the AI to type text into the currently focused desktop application.",
       inputSchema: { session_token: z.string(), text: z.string().max(10_000), interval: z.number().min(0).max(1).optional() },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
     },
     async ({ session_token, text, interval }) => {
       await sendCommand(getPairingCodeForSession(session_token), "keyboard.type", { text, interval });
