@@ -23,6 +23,7 @@ const WIDGET_URI = "ui://mcp-control-hub/control-panel-v1.html";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const widgetHtml = fs.readFileSync(path.resolve(__dirname, "..", "widget", "index.html"), "utf8");
+const assetsDirectory = path.resolve(__dirname, "..", "assets");
 
 type Companion = {
   code: string;
@@ -337,9 +338,35 @@ app.use(
   }),
 );
 app.use(express.json({ limit: "4mb" }));
+app.use("/assets", express.static(assetsDirectory, { maxAge: "1d", immutable: false }));
 
 app.get("/", (_req, res) => {
-  res.type("text/plain").send("MCP Control Hub Plugin is running. ChatGPT endpoint: /mcp");
+  res.type("html").send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP Control Hub</title>
+    <link rel="icon" href="/assets/icon.png" />
+    <style>
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: #041936; color: #fff; }
+      main { width: min(520px, calc(100% - 48px)); text-align: center; }
+      img { width: 180px; height: 180px; border-radius: 36px; box-shadow: 0 20px 60px #0008; }
+      h1 { margin: 24px 0 8px; font-size: clamp(2rem, 7vw, 3rem); }
+      p { margin: 8px 0; color: #b7d7ff; line-height: 1.6; }
+      code { color: #28e2ff; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/assets/logo.png" alt="MCP Control Hub logo" />
+      <h1>MCP Control Hub</h1>
+      <p>The service is online and ready for ChatGPT.</p>
+      <p>Streamable HTTP endpoint: <code>/mcp</code></p>
+    </main>
+  </body>
+</html>`);
 });
 
 app.get("/health", (_req, res) => {
