@@ -1,0 +1,10 @@
+# Keep the Vercel deployment purely static.
+# The MCP runtimes are local-only and are distributed in /downloads.
+servers/
+INSTALL-WINDOWS.ps1
+INSTALL-WINDOWS.bat
+INSTALL-MACOS.sh
+INSTALL-LINUX.sh
+README.md
+SECURITY.md
+LICENSE

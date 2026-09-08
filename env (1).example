@@ -1,0 +1,5 @@
+# The server defaults to locked-down mode. Set these in your MCP host config
+# only when you intentionally grant these capabilities.
+MCP_COMPUTER_ALLOW_SCREENSHOTS=0
+MCP_COMPUTER_ALLOW_ACTIONS=0
+MCP_COMPUTER_ACTION_PAUSE=0.05
