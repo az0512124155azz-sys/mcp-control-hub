@@ -5,20 +5,20 @@ import io
 import json
 import os
 import secrets
-import sys
-import threading
 import time
 from pathlib import Path
 from typing import Any
 
 import pyautogui
 import websocket
-from PIL import Image
 from playwright.sync_api import BrowserContext, Page, sync_playwright
 
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "MCP-Control-Hub"
 PAIRING_FILE = APP_DIR / "pairing-code.txt"
-PLUGIN_WS_URL = os.environ.get("MCP_CONTROL_HUB_PLUGIN_WS", "ws://127.0.0.1:8787/companion")
+PLUGIN_WS_URL = os.environ.get(
+    "MCP_CONTROL_HUB_PLUGIN_WS",
+    "wss://mcp-control-hub-plugin.onrender.com/companion",
+)
 
 APP_DIR.mkdir(parents=True, exist_ok=True)
 
