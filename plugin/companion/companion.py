@@ -113,6 +113,7 @@ class BrowserController:
             page.get_by_label(target, exact=False),
             page.get_by_placeholder(target, exact=False),
             page.get_by_role("textbox", name=target, exact=False),
+            page.get_by_role("combobox", name=target, exact=False),
         ]
         for candidate in candidates:
             try:
