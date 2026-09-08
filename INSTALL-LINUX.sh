@@ -63,6 +63,26 @@ python3 -m venv .venv
 ./.venv/bin/python -m pip install --upgrade pip
 ./.venv/bin/python -m pip install -r requirements.txt
 
+# Create simple launchers for Custom MCP screens.
+cat > "$INSTALL_ROOT/START-BROWSER-MCP.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+export MCP_PAIRING_CODE="$(tr -d '\r\n ' < "$HOME/.mcp-control-hub/pairing-code.txt")"
+exec node "$HOME/.mcp-control-hub/servers/browser-mcp/dist/index.js"
+SH
+chmod +x "$INSTALL_ROOT/START-BROWSER-MCP.sh"
+
+cat > "$INSTALL_ROOT/START-COMPUTER-MCP.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+export MCP_PAIRING_CODE="$(tr -d '\r\n ' < "$HOME/.mcp-control-hub/pairing-code.txt")"
+export MCP_COMPUTER_ALLOW_SCREENSHOTS=1
+export MCP_COMPUTER_ALLOW_ACTIONS=1
+export MCP_COMPUTER_ACTION_PAUSE=0.05
+exec "$HOME/.mcp-control-hub/servers/computer-mcp/.venv/bin/python" "$HOME/.mcp-control-hub/servers/computer-mcp/server.py"
+SH
+chmod +x "$INSTALL_ROOT/START-COMPUTER-MCP.sh"
+
 printf '\nInstallation completed successfully.\n'
 printf '\n=========================================\n'
 printf '          YOUR PAIRING CODE\n\n'

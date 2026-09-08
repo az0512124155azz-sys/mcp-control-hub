@@ -126,6 +126,30 @@ pause
 "@
 [System.IO.File]::WriteAllText($ShowCodeBat, $ShowCodeContent, [System.Text.Encoding]::ASCII)
 
+
+# Create simple launchers for Custom MCP screens. They load the local pairing
+# code automatically, so users do not need to type environment variables.
+$BrowserLauncher = Join-Path $InstallRoot 'START-BROWSER-MCP.cmd'
+$BrowserLauncherContent = @"
+@echo off
+setlocal
+set /p MCP_PAIRING_CODE=<"%~dp0pairing-code.txt"
+node "%~dp0servers\browser-mcp\dist\index.js"
+"@
+[System.IO.File]::WriteAllText($BrowserLauncher, $BrowserLauncherContent, [System.Text.Encoding]::ASCII)
+
+$ComputerLauncher = Join-Path $InstallRoot 'START-COMPUTER-MCP.cmd'
+$ComputerLauncherContent = @"
+@echo off
+setlocal
+set /p MCP_PAIRING_CODE=<"%~dp0pairing-code.txt"
+set MCP_COMPUTER_ALLOW_SCREENSHOTS=1
+set MCP_COMPUTER_ALLOW_ACTIONS=1
+set MCP_COMPUTER_ACTION_PAUSE=0.05
+"%~dp0servers\computer-mcp\.venv\Scripts\python.exe" "%~dp0servers\computer-mcp\server.py"
+"@
+[System.IO.File]::WriteAllText($ComputerLauncher, $ComputerLauncherContent, [System.Text.Encoding]::ASCII)
+
 Write-Host ''
 Write-Host 'Installation completed successfully.' -ForegroundColor Green
 Write-Host "Permanent install folder: $InstallRoot" -ForegroundColor Gray
