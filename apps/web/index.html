@@ -167,6 +167,9 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
 .code-card { border: 1px solid #2c313a; border-radius: 14px; overflow: hidden; background: #0f1218; color: #e6ebf2; direction: ltr; text-align: left; }
 .code-head { height: 42px; border-bottom: 1px solid #282d35; background: #171a20; display: flex; align-items: center; justify-content: space-between; padding: 0 10px 0 14px; color: #929cab; font-size: 11px; }
 .copy-button { border: 1px solid #343b46; background: #20252d; color: #dce2eb; border-radius: 7px; padding: 5px 9px; cursor: pointer; font-size: 10px; }
+.code-actions { display: flex; align-items: center; gap: 7px; }
+.download-button { border: 1px solid #3d66d9; background: #315bc8; color: #fff; border-radius: 7px; padding: 5px 10px; cursor: pointer; font-size: 10px; font-weight: 700; }
+.download-button:hover { background: #294eae; }
 .code-card pre { margin: 0; padding: 16px; overflow: auto; max-height: 420px; font-size: 12px; line-height: 1.7; tab-size: 2; }
 .steps-list { margin: 22px 0 0; padding-right: 22px; display: grid; gap: 12px; color: #606975; line-height: 1.65; }
 .steps-list strong { color: #171a20; }
@@ -247,7 +250,7 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
 }
 
 /* Static deployment refinements */
-.copy-button:focus-visible, .segmented button:focus-visible, .client-tabs button:focus-visible, a:focus-visible {
+.copy-button:focus-visible, .download-button:focus-visible, .segmented button:focus-visible, .client-tabs button:focus-visible, a:focus-visible {
   outline: 3px solid rgba(36, 88, 230, .28);
   outline-offset: 3px;
 }
@@ -347,13 +350,14 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
       <div class="section-heading">
         <span class="kicker">02 · Interactive install</span>
         <h2>בחר AI ומערכת הפעלה — וקבל הגדרה מוכנה</h2>
-        <p>GPT, Codex, Claude, Cursor, VS Code, Windsurf, Cline ועוד. הכנס את נתיב הפרויקט והאתר ייצור עבורך את ההגדרה המתאימה.</p>
+        <p>GPT, Codex, Claude, Cursor, VS Code, Windsurf, Cline ועוד. בחר Windows, macOS או Linux — והאתר יכין עבורך קובץ הגדרה מוכן להורדה.</p>
       </div>
 
       <div class="guide-shell">
         <div class="segmented" aria-label="Operating system">
           <button type="button" data-os="windows" class="active">Windows</button>
           <button type="button" data-os="mac">macOS</button>
+          <button type="button" data-os="linux">Linux</button>
         </div>
 
         <div class="client-tabs" role="tablist" aria-label="MCP clients">
@@ -387,17 +391,12 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
             <pre><code id="install-code"></code></pre>
           </div>
           <div class="code-card">
-            <div class="code-head"><span>2 · MCP config / setup</span><button class="copy-button" type="button" data-copy-target="config-code">העתק</button></div>
+            <div class="code-head"><span id="config-card-title">2 · קובץ MCP מוכן</span><div class="code-actions"><button class="download-button" id="download-config" type="button">הורד קובץ</button><button class="copy-button" type="button" data-copy-target="config-code">העתק</button></div></div>
             <pre><code id="config-code"></code></pre>
           </div>
         </div>
 
-        <ol class="steps-list">
-          <li><strong>התקן ובנה.</strong> הרץ את פקודות ההתקנה.</li>
-          <li><strong>הדבק את ה-JSON.</strong> שמור אותו בקובץ שמופיע למעלה.</li>
-          <li><strong>אשר הרשאות מערכת.</strong> ב-macOS אשר Accessibility ו-Screen Recording; ב-Windows ודא שהאפליקציה אינה חסומה.</li>
-          <li><strong>הפעל מחדש את Client ה-AI.</strong> לאחר מכן בקש מה-AI לבדוק אילו כלי MCP זמינים. ב-AI שרץ בטרמינל האתר מחבר בכוונה רק את Computer Control.</li>
-        </ol>
+<ol class="steps-list" id="steps-list"></ol>
       </div>
     </section>
 
@@ -494,17 +493,20 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
   const clientExtraEl = document.getElementById("client-extra");
   const installCodeEl = document.getElementById("install-code");
   const configCodeEl = document.getElementById("config-code");
+  const configCardTitleEl = document.getElementById("config-card-title");
+  const downloadConfigButton = document.getElementById("download-config");
+  const stepsListEl = document.getElementById("steps-list");
 
   function winJoin(root, tail) {
     return `${root.replace(/[\\/]+$/, "")}\\${tail.replaceAll("/", "\\")}`;
   }
 
-  function macJoin(root, tail) {
+  function unixJoin(root, tail) {
     return `${root.replace(/\/+$/, "")}/${tail}`;
   }
 
   function makeEntries(currentOs, root, currentClient = client) {
-    const join = currentOs === "windows" ? winJoin : macJoin;
+    const join = currentOs === "windows" ? winJoin : unixJoin;
     const python = currentOs === "windows"
       ? join(root, "servers/computer-mcp/.venv/Scripts/python.exe")
       : join(root, "servers/computer-mcp/.venv/bin/python");
@@ -586,27 +588,90 @@ ${JSON.stringify({ mcpServers: terminalEntries }, null, 2)}`;
   function configPath(currentClient, currentOs) {
     if (currentClient === "chatgpt") return "ChatGPT → Settings → Apps → Advanced Settings → Developer Mode";
     if (currentClient === "codex") return currentOs === "windows" ? "%USERPROFILE%\\.codex\\config.toml" : "~/.codex/config.toml";
-    if (currentClient === "claude") return currentOs === "windows" ? "%APPDATA%\\Claude\\claude_desktop_config.json" : "~/Library/Application Support/Claude/claude_desktop_config.json";
+    if (currentClient === "claude") {
+      if (currentOs === "windows") return "%APPDATA%\\Claude\\claude_desktop_config.json";
+      if (currentOs === "mac") return "~/Library/Application Support/Claude/claude_desktop_config.json";
+      return "~/.config/Claude/claude_desktop_config.json";
+    }
     if (currentClient === "cursor") return currentOs === "windows" ? "%USERPROFILE%\\.cursor\\mcp.json" : "~/.cursor/mcp.json";
     if (currentClient === "windsurf") return currentOs === "windows" ? "%USERPROFILE%\\.codeium\\windsurf\\mcp_config.json" : "~/.codeium/windsurf/mcp_config.json";
     if (currentClient === "cline") return "Cline → MCP Servers → Configure MCP Servers";
-    if (currentClient === "terminal") return "קובץ ה-MCP של כלי הטרמינל שבחרת — Computer Control בלבד";
+    if (currentClient === "terminal") return currentOs === "windows" ? "%USERPROFILE%\\.mcp\\computer-control.json" : "~/.config/mcp/computer-control.json";
     return "<your-project>/.vscode/mcp.json";
   }
 
   function installCommands(currentOs, root) {
     const browserDir = currentOs === "windows"
       ? winJoin(root, "servers/browser-mcp")
-      : macJoin(root, "servers/browser-mcp");
+      : unixJoin(root, "servers/browser-mcp");
     const computerDir = currentOs === "windows"
       ? winJoin(root, "servers/computer-mcp")
-      : macJoin(root, "servers/computer-mcp");
+      : unixJoin(root, "servers/computer-mcp");
 
     if (currentOs === "windows") {
-      return `# PowerShell\ncd "${browserDir}"\nnpm install\nnpm run build\nnpx playwright install chromium\n\ncd "${computerDir}"\npython -m venv .venv\n.\\.venv\\Scripts\\python.exe -m pip install --upgrade pip\n.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt`;
+      return `# PowerShell — Windows\ncd "${browserDir}"\nnpm install\nnpm run build\nnpx playwright install chromium\n\ncd "${computerDir}"\npython -m venv .venv\n.\\.venv\\Scripts\\python.exe -m pip install --upgrade pip\n.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt`;
     }
 
-    return `# Terminal (macOS)\ncd "${browserDir}"\nnpm install\nnpm run build\nnpx playwright install chromium\n\ncd "${computerDir}"\npython3 -m venv .venv\n./.venv/bin/python -m pip install --upgrade pip\n./.venv/bin/python -m pip install -r requirements.txt`;
+    if (currentOs === "linux") {
+      return `# Terminal — Linux\n# Ubuntu / Debian: אם חסרות תלויות מערכת ל-PyAutoGUI\n# sudo apt update && sudo apt install -y python3-venv python3-tk scrot xclip\n\ncd "${browserDir}"\nnpm install\nnpm run build\nnpx playwright install chromium\n\ncd "${computerDir}"\npython3 -m venv .venv\n./.venv/bin/python -m pip install --upgrade pip\n./.venv/bin/python -m pip install -r requirements.txt`;
+    }
+
+    return `# Terminal — macOS\ncd "${browserDir}"\nnpm install\nnpm run build\nnpx playwright install chromium\n\ncd "${computerDir}"\npython3 -m venv .venv\n./.venv/bin/python -m pip install --upgrade pip\n./.venv/bin/python -m pip install -r requirements.txt`;
+  }
+
+  function configFileName(currentClient) {
+    if (currentClient === "codex") return "config.toml";
+    if (currentClient === "claude") return "claude_desktop_config.json";
+    if (currentClient === "cursor") return "mcp.json";
+    if (currentClient === "vscode") return "mcp.json";
+    if (currentClient === "windsurf") return "mcp_config.json";
+    if (currentClient === "cline") return "cline_mcp_settings.json";
+    if (currentClient === "terminal") return "computer-control.json";
+    if (currentClient === "chatgpt") return "chatgpt-mcp-setup.txt";
+    return "mcp.json";
+  }
+
+  function osLabel(currentOs) {
+    if (currentOs === "windows") return "Windows";
+    if (currentOs === "mac") return "macOS";
+    return "Linux";
+  }
+
+  function renderSteps() {
+    const system = osLabel(os);
+    let permissionStep = "";
+    if (os === "windows") {
+      permissionStep = "אם Windows מציג בקשת Firewall או SmartScreen, אשר רק עבור השרתים המקומיים שאתה סומך עליהם.";
+    } else if (os === "mac") {
+      permissionStep = "פתח System Settings → Privacy & Security ואשר Accessibility ו-Screen Recording לאפליקציה שמפעילה את ה-MCP.";
+    } else {
+      permissionStep = "ב-Linux ודא שלסשן הגרפי יש הרשאות צילום מסך וקלט. ב-Wayland ייתכן שה-Compositor יחסום שליטה; במקרה כזה השתמש בהרשאות המתאימות או בסשן X11.";
+    }
+
+    const downloadStep = client === "chatgpt"
+      ? "לחץ על ‘הורד קובץ’ כדי לקבל קובץ הוראות מוכן לחיבור ChatGPT דרך MCP מרוחק / Tunnel."
+      : `לחץ על ‘הורד קובץ’ כדי להוריד את <code dir=\"ltr\">${configFileName(client)}</code>. אין צורך ליצור את הקובץ ידנית. לאחר ההורדה מקם אותו בנתיב שמופיע למעלה.`;
+
+    stepsListEl.innerHTML = `
+      <li><strong>התקן ב-${system}.</strong> הרץ רק את פקודות ההתקנה שמופיעות כרגע — הן מותאמות למערכת שבחרת.</li>
+      <li><strong>הורד את קובץ ההגדרה.</strong> ${downloadStep}</li>
+      <li><strong>אשר הרשאות ב-${system}.</strong> ${permissionStep}</li>
+      <li><strong>הפעל מחדש את ${clients[client].label}.</strong> לאחר מכן בקש מה-AI לבדוק אילו כלי MCP זמינים.${client === "terminal" ? " במצב Terminal מחובר בכוונה רק Computer Control MCP." : ""}</li>`;
+  }
+
+  function downloadConfig() {
+    const content = makeConfig(client, os, rootInput.value.trim());
+    const filename = configFileName(client);
+    const mime = filename.endsWith(".json") ? "application/json" : filename.endsWith(".toml") ? "application/toml" : "text/plain";
+    const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function renderExtra() {
@@ -623,7 +688,15 @@ ${JSON.stringify({ mcpServers: terminalEntries }, null, 2)}`;
       return;
     }
     if (client === "claude" && os === "windows") {
-      clientExtraEl.innerHTML = `<div class="warning-box"><strong>הערת Windows:</strong> אם Claude לא מוצא את הקובץ, פתח את הגדרות ה-MCP מתוך Claude עצמו ובדוק את הנתיב שהוא יוצר.</div>`;
+      clientExtraEl.innerHTML = `<div class="warning-box"><strong>Windows:</strong> אם Claude לא מוצא את הקובץ, פתח את הגדרות ה-MCP מתוך Claude עצמו ובדוק את הנתיב שהוא יוצר.</div>`;
+      return;
+    }
+    if (client === "claude" && os === "mac") {
+      clientExtraEl.innerHTML = `<div class="info-box"><strong>macOS:</strong> קובץ ההגדרה המוכן מיועד לנתיב שמופיע למעלה. לאחר ההורדה העבר אותו לשם ואשר הרשאות Accessibility ו-Screen Recording.</div>`;
+      return;
+    }
+    if (client === "claude" && os === "linux") {
+      clientExtraEl.innerHTML = `<div class="warning-box"><strong>Linux:</strong> זמינות Claude Desktop עשויה להשתנות לפי ההפצה והגרסה. אם אין אצלך אפליקציית Desktop תואמת, השתמש ב-Claude Code / Cursor / VS Code עם אותו Computer MCP.</div>`;
       return;
     }
     if (client === "vscode") {
@@ -639,14 +712,21 @@ ${JSON.stringify({ mcpServers: terminalEntries }, null, 2)}`;
     clientNoteEl.textContent = clients[client].note;
     installCodeEl.textContent = installCommands(os, root);
     configCodeEl.textContent = makeConfig(client, os, root);
+    configCardTitleEl.textContent = client === "chatgpt" ? "2 · קובץ הוראות מוכן" : `2 · ${configFileName(client)} מוכן להורדה`;
+    downloadConfigButton.textContent = client === "chatgpt" ? "הורד הוראות" : `הורד ${configFileName(client)}`;
     renderExtra();
+    renderSteps();
   }
 
   document.querySelectorAll("[data-os]").forEach((button) => {
     button.addEventListener("click", () => {
       os = button.dataset.os;
       document.querySelectorAll("[data-os]").forEach((item) => item.classList.toggle("active", item === button));
-      rootInput.value = os === "windows" ? "C:\\Users\\you\\mcp-control-hub" : "/Users/you/mcp-control-hub";
+      rootInput.value = os === "windows"
+        ? "C:\\Users\\you\\mcp-control-hub"
+        : os === "mac"
+          ? "/Users/you/mcp-control-hub"
+          : "/home/you/mcp-control-hub";
       render();
     });
   });
@@ -660,6 +740,7 @@ ${JSON.stringify({ mcpServers: terminalEntries }, null, 2)}`;
   });
 
   rootInput.addEventListener("input", render);
+  downloadConfigButton.addEventListener("click", downloadConfig);
 
   document.querySelectorAll("[data-copy-target]").forEach((button) => {
     button.addEventListener("click", async () => {
