@@ -1,0 +1,71 @@
+name: Apply MCP pairing-code update
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/apply_pairing_update.py
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Apply pairing-code changes
+        run: python tools/apply_pairing_update.py
+
+      - name: Validate scripts and website
+        shell: bash
+        run: |
+          python -m py_compile servers/computer-mcp/server.py
+          bash -n INSTALL-MACOS.sh
+          bash -n INSTALL-LINUX.sh
+          python - <<'PY'
+          from pathlib import Path
+          html = Path('index.html').read_text(encoding='utf-8')
+          js = html.split('<script>', 1)[1].rsplit('</script>', 1)[0]
+          Path('/tmp/mcp-site.js').write_text(js, encoding='utf-8')
+          PY
+          node --check /tmp/mcp-site.js
+
+      - name: Validate Browser MCP TypeScript build
+        working-directory: servers/browser-mcp
+        run: |
+          npm install --package-lock=false --no-audit --no-fund
+          npm run build
+
+      - name: Commit generated update
+        shell: bash
+        run: |
+          rm -rf servers/browser-mcp/node_modules servers/browser-mcp/dist servers/computer-mcp/__pycache__
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html apps/web/index.html \
+            INSTALL-WINDOWS.ps1 INSTALL-WINDOWS.bat INSTALL-MACOS.sh INSTALL-LINUX.sh README.md \
+            servers/browser-mcp/src/index.ts servers/browser-mcp/.env.example \
+            servers/computer-mcp/server.py servers/computer-mcp/.env.example \
+            downloads/MCP-Control-Hub-Windows.zip downloads/MCP-Control-Hub-macOS.zip \
+            downloads/MCP-Control-Hub-Linux.zip downloads/MCP-Control-Hub-Local.zip \
+            MCP-Control-Hub-Windows.zip MCP-Control-Hub-macOS.zip MCP-Control-Hub-Linux.zip MCP-Control-Hub-Local.zip \
+            apps/web/downloads/MCP-Control-Hub-Windows.zip apps/web/downloads/MCP-Control-Hub-macOS.zip \
+            apps/web/downloads/MCP-Control-Hub-Linux.zip apps/web/downloads/MCP-Control-Hub-Local.zip
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+          else
+            git commit -m 'Add MCP pairing code flow'
+            git push origin main
+          fi
