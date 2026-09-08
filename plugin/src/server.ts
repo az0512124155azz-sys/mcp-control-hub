@@ -328,23 +328,48 @@ function createPluginServer() {
 }
 
 const app = express();
-app.use(cors({ origin: true, exposedHeaders: ["Mcp-Session-Id"] }));
+app.use(
+  cors({
+    origin: true,
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Mcp-Session-Id", "MCP-Protocol-Version", "Accept"],
+    exposedHeaders: ["Mcp-Session-Id"],
+  }),
+);
 app.use(express.json({ limit: "4mb" }));
+
+app.get("/", (_req, res) => {
+  res.type("text/plain").send("MCP Control Hub Plugin is running. ChatGPT endpoint: /mcp");
+});
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "mcp-control-hub-plugin", companions: companions.size });
 });
 
-app.post("/mcp", async (req, res) => {
+async function handleMcp(req: express.Request, res: express.Response) {
   const server = createPluginServer();
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
+
   res.on("close", () => {
     void transport.close();
     void server.close();
   });
-  await server.connect(transport);
-  await transport.handleRequest(req, res, req.body);
-});
+
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.method === "POST" ? req.body : undefined);
+  } catch (error) {
+    console.error("Error handling MCP request:", error);
+    if (!res.headersSent) res.status(500).send("Internal server error");
+  }
+}
+
+app.post("/mcp", handleMcp);
+app.get("/mcp", handleMcp);
+app.delete("/mcp", handleMcp);
 
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ noServer: true });
