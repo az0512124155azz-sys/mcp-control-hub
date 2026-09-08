@@ -1,26 +1,196 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import base64, gzip, shutil, zipfile
+import shutil, zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PAYLOAD = {'INSTALL-LINUX.sh': 'H4sIAAkroGoC/51WbVPbRhD+fr9ioyTInlYyL22SGsgMGAfcAnZtKKHAMGfpbF0i3al3J4wn5L93T7YcybxONGNblvZ9n332Xr9qZFo1hlw0mLiBIdUR0cyAxzIJKU/ZiPKYkFRxYUbgXoqjVg9aUhglYzjIhuDBIRfZLXChDY1jpi6FuxA/ibj+8QZCZlhg8Al+5ETASMYhPqaZkQk1PECpqQ/nMoNQgpAGBGMhGAks5AaomEJKTeRfCuuDDLqn/Vb7ut/tnmw7b2pBCPgdciVowvD22+7O4OB6JnSxevXdqTuwsgLpJKw7pHM8ONk5PCyUD7pH7YafBKkXzFLzomzokN1+92zQ7s+NoFzJZUMzdcOUbgyVnOC9h9oOaXWPeqcnz6kEMkkzU+gUXvY6fZQvR/aMjycUqh56O51+53j/+lPnsL2skVKOzRpj4iHzza1xCLm4AM8Ws5q+A1dXcHcH34AFkQTniGuNivMmNmFZfBPYLXZtbRO+LywuledZk8vyZZuYYkJFCN4NQiVk8LERspuGyOIY1j+urJXsusc2ty8a1ld/AQSkYv9lXLHQdx+zlyZPmbOvX2ImnZpIio2nTPVyEdh43N5iljqzMbL1MbIJbzUOAVSb6ZDkKw4AeCk8jAtsLh8BduMVeBplysCwzdgEEzFBAIoXre6eRUytSMWDrS23d+4SnqRSGdAsUMxoQuM0okPkjW1wd3Zbe+1P+wd//nV4dNz7uz84Of3n7PP5v+sbv/3+7v2HP+b0UHNd/4vkoja34WNBeMBqhak6wkDBNdIHKCrGrPahXq+T3jnB8QUoqvJWu6U8bLgOfFzOjLBYsweyMsrC0r1Ezrpo6pQGrHnlwta9wtwBSroXzVhOEJYogvdZmub3GM2IkyBKZAjvVlfvuSYqAU+NSuOEY+uUZ8H+J0EKXv+BmauqLcTuDdKyvRJjX6w11q+gBJ/dGZsAUrnv+5ZLg3DZUY7xmUp+rzIBw4zHIf67hTSm04ni48gUQhBESiY8Syqe15c8t+a0tOy6GvsCbAnc2KXk22/iN/LffFXNJKwArqhFCJ6XpWNFkQvw6UvkVTFzCRMIQGQ/QgJqcgBVxyeSE6/ClDpy7CgMDrpnLnn9oiX6U4vq8cU7DwdsOE1w88CdN49w+g8ztuY26jlk3+eQfT7ZclvnDcWNjTW1mybGvR6CzoKAaT3K7BYvnwJ6TCElYokXlS8I/mESWzDeCHrTHTwc7J92IKDCnggCmppMMUBqmK9qS1mgkUKYgEzY88QZncZIwb9Cpln+1sYoNTeohEOb2C0jhbY2qIDPa2tIY/mj+cmi8L/90qusBIvrHDtaUA5Yyqlah8plKzGrRYXLfiaWspO2sNNm7DHMdhKwYbYgy1iasCGWh8GQIecyPH1NRCxpaOE1lVk+rrbcIz6uNHaASAF7MhtTZGkEBPqacBM1S+m8AFr/A6Lv2PSECgAA', 'INSTALL-MACOS.sh': 'H4sIAAkroGoC/51WbXPaRhD+fr9ioyQWTEfCxm2S4pcZG5NAawwFXJdij0dIB7pEulPvTmAmzn/vHiAssLE90QxwSM++7z6rt29KqZKlIeMlyicw9FRIFNXg0FRAwhI68lhESCIZ1yOwr3mz2oaq4FqKCOrpEByIPb/VBcaV9qKIymtur+C9kKmHJxBQTX2Nd/AjphxGIgrwtpdqEXua+YiaudAXKQQCuNDAKQ1AC6AB0+DxGSSeDt1rbmyQbuuyU63ddlqt3pH1ruAHgN8Bk9yLKR6/n55067cL0GD35odVtGBnB5JpULRI46LbOzk/z4TrrWat5MZ+4viL0JwwHVrktNO66tY6SyWIy5ksKSonVKrSUIopnh2Utki11Wxf9l4S8UWcpDqTyaycNTqIz3v2go1nBNYttE8ancbFl9vPjfPapkTiMSzWGAMPqKvvtEXIYACOSeZ6+Bbc3MD9PXwH6ocCrCZTCgWXRazAJvwA6B1Wbe8Afqw0bqTnRZWb+LxODDH2eADOBFsloHBcCuikxNMogvLxzl5Or31hYvuqoLz7C2BDSvpfyiQNXHubviR+Tp15/Bo1yUyHgu8/p6o9h8D+dn2rWWosxsjkR4sKvFc4BLBeTIvE33AAwEng6b7A4rIRYDXegKMQk28MU4wD0CHlBCB7UG2dmY4pZKE4cHhot/s2YXEipAZFfUm1Il6UhN4QeeMI7JPT6lnt85f6H3+eNy/af3W6vcu/r/7p/1ve//W3Dx8//b6kh4Jtu18F44WlDhcTwnxayFQVsQ0k3CJ9gPT4mBY+FYtF0u4THF+ALCvvlZ2Lw7hrwfFmZIRGij4RlZamLe1r5KxBRSWeTys3Nhw+Ssw9INIeVCIxxbZECJ7TJJmf0ZsRI34YiwA+7O4+Mk1kDI4c5cYJx9bKz4L5T/wEnM4TM7cutoI9GqRNfTnGHuyVyjeQa5/TBZsAUrnruoZL/WDT0LzHFyLzs0w5DFMWBfjvDpLIm00lG4c6A4EfShGzNF6zXN6wXF3S0qbpdd9XzRbDxCwl13wTtzT/na+qBcIAcEWtXHCcNBlLD7kA774GL7OZiynHBkT2I8T39LyB1scnFFNnjSlVaJlR6NZbVzZ5+6ol+lOLavviXboDxp0K2HPHrXdbOP1Bjcm58XrZsh/nLftysPmyLguKGxtzajZNhHs9AJX6PlVqlJotnn8LaFOJlIgpXmU+I3hDYk/RWCZ59Norbw5WVx9zmg09mKFfhP8YaK4HX9bY5Gd8yRupcdPv2rwImVwCpgw5FjarOaVDxTSFIUXWo/j+M+WR8AJT4JlI5wOD8nzExmup7WKtwLwbjT3kSSwJ2poyHW5L7Zbi/g+vpPcPBgoAAA==', 'INSTALL-WINDOWS.bat': 'H4sIAAkroGoC/3WQUU/CMBSF3/crTpYs0QcG/gASFWYkIhAg4mtp77ImtbdZO8de/O12A9QXX5qm956e75x7khWDyzLxFAxLYRKpMFZIsy/lJmmS9Av5cOJ1tsGMbajZ4Lk5YoSDtopbD219EMZQfV5cMZwIlUdgkNIhx77SHkY0VlZUo/EUNcGDW4uSjYpvogn8IYKOCKbLL7aJ45ZqX5ExOZ0IoxVvai61idfiRLIJmu2GjZYdHjsnvMfoqZ+e8Rer3f5huRwdFqv5+rDLnb9L+6BIi/fFfraeF9Os2G7X22XxViyzn7S6jB9cV7J0Ok0nKW4SYEi3OIcVvTdKbXXkU/CNlOR92Qz4tyDj6T+NiIgKrQ4V6KQDJCvCr2F+Vb0QOYS+unYoGuzIQlgVFa6LEwLVNcfyjvxJiNgdN7AUP4+VuYhxCeRErDwZvMbHP07JN1jFzo0AAgAA', 'INSTALL-WINDOWS.ps1': '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', 'README.md': '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', 'index.html': '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[... ELLIPSIZATION ...]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', 'servers/computer-mcp/.env.example': 'H4sIAAkroGoC/22PMW+DMBSEd37FkzIHsXSpxIBc2iARjICoIzL4AVZdm9qmEf++jtMOVbve3fve3QEa/NiEQf4IKxNGqBlGzRFmVGiYQw7DDm5BOJMaiFbOaAmnbQChrGNSookjb/V1VjRF9dIT+pSn0QHo6oRWTIL+RGOEJ07aBJDUo5e/nx3Ds0lI/I15LsqA6fyBReMZwHFim3QWnL4x3pAfub4qePeEGFp0N7pFXwx2vZlQeNHW+T1qErOHaSV3uC4YAj7nUN1Lenk2TP0QRrayQUjhBNp7LULP9aXLmz4rS/rat6TJ86o90a5Nk/8CGekKWv01g+xHXto8TeLkIfoCe2m8NoABAAA=', 'servers/computer-mcp/server.py': 'H4sIAAkroGoC/91ZbXPbuBH+zl+x5X0o1ZF4dmZyk/Gdbqo6vsRTJ9ZYTu9DkuFAIiShIQkeAEpiXf/37gIkRerNuun1Sz1jiwKBxe6DZ99g3/evZZoXhiu4lplRMoEP1+PQ8x6XQoPmaoVvRGZ4ZoTMWJKUUGiOb0wsJLAsBr7JJY1kEjJu1lJ9g0RoXMBVCI9LDqNbbym1gYQV2WyJMw0O5krOuNaQyBkJ7dNgBvSM76Wkv0tmYK1YDuNyVBj57tMtqjVhc25KiPmcFYnRV94A9ExxnumlNBqY4jBFmd94DEWW0A5oTnR9/2H86fHmIRrd3d3/Gk2uH25uPk7e3z9OhpcoIZVo0/ffeDmVTMXAZmTrucJG14+39x+doEZT+GV0ezcZ/XKDQLFSA8/YNOHxj7jVSmQLB4EkXBWaa78amQ8SPjcwkwqx8wDYVCq0aSuUFFsJU4ae7/ueN1cyhSiaF6ZQPIpApDkuwEPJpGHWBM+rxpYpm9XPQtZPUtdPecLMXKq0/q5L7cTnzCwTMa1lj/Gre2HKnAypxu8EWsKSZr+8ZKjzohDbgZyrWSJytzqd5WFNLjcBkZ3Ygd0JIT52p96mbME9z8MXMNwuDA5S2e953nfwd85zi/KySFkGPOVqwbNZiccj8xDeInelgVhoOiaciNwXGZE0LiwZQq+xKGyOdgiPquCtN+PRpwkNzxPJTCB1uODoB6vA79LGEiayk/0++BfhxWu/h2p6HtIaopwJhdBGc5HwoAeDny3qV0gIAIl2KhFz3GRH/Hh0+3D78V30y+3dDdpMk8W8me9W04/iyJbMigzqt70QnRh9Gb1ABc3amhMhksHwFFUZDsH/VWSxXGvf+n5Lh7v769HdaDx+O3oc+b0j++kQ5wols8/d+V978D2QGYPq5Abvi6lPYxUYg5mMeWg2xvd2hIZLmRJMOJeYghOdgOVRARXMiv9WCPSbaoJD+qPMKqyI+IjyzmnYV0aVW/sQOT4zGCGGdkmoOIsjwzcmQH7JGJcO/cLMB2/8XqiNEnnQC4s8b4DmmxnPDdxPbpSSais3x11N0Hyln/lBgmO8KJLY8neOZwMCQ0alNJDRgGH0iVR7DuGBD1SRWUeglbUUBBvpjpEqSdDf/H53VzR8iBRA7WOky/Zlb3vGTGgOE0uTm40wwStkM73QaGkiLDhH6Hp9/9Y6wRF0kIZkWC3nJDyH0UFPXjNhCA0kM7AONiHcuBCMgFisMIusM5iWdqSBBKTDbM2nGgMdTDmK4oB+kKGnx3VAd4eRzcXiD8KwhQAF8HCGBmJSimKx4NoENSr9hoS9XYAOY9Khh+L/tGtR5109zzjhaptdNtU7sBmxGwlA2O/qcnBH55zzhC2CjKX8CiO0sq45xargqu39W0bRRAqkLRIlck0koij+5F8SwwzGavosuaYPmfnPu6GgVUnshoPqGJxi/umaohP+LHBjrlKhNSYS6+U7vJ3YbbH4ySmRE2OrRBSHMOHmxQoG/K48sfVwW3g5ThbK1gQ2biukD8NMStOqLOu3OLkDS1UP/W5Iqsro98LxoVuNVQH9LFiaWux/BcmKJSJmBrMGFW/B5opq4z6U9tPiY4o84Z/tKP756kxfi9gs+7DkYrE0lCmakkGLf/FurAsu4KchbOAnt8oqZ4dKHHIS9gD9B0sK7rCc+2NSDYKnzXMfnsrnHiEnC6OpbHClt0iZKqu6GZ7sNs+bJyf7Oayqh8rLNmgdWv9XKsioMEdlCYlZ5csromaKihuxmBmnGtanD279/aRf70S29puyF7sG0aCfN4wYLBBecFJDKnPPxo807byrdwg6Bj012Pl1heNf7Rc7/f1p6BAJZ5q3p1dD3fkO4Cqc4Own3xqAT5UhvrMEByrQ26sdPnbZBv9uKGbhZ9me1IpUUdVb4JQzo1NLTuXaZ8lo3LmtLMZ5u4wq4db4nIlEY6t2/E20RDPxNbr7inf6IWz5RIx95uG+yA4rsVjgY6vdQqnUGt7YaooK9ioDP5/kboOi469tLBoCX1fx+IDPuIBh6SSw4cJWMXPFBglwPWPD3cPZxZVH+Nxlc0shO2NazOdo6BCbtvBvpeH69r61NtRsxQM3p08pNmVm6I8/vsMEJxGGFJ1jSPh3HMBaGWAUY0O3lNLoiiIIsriRkmcLap2Og4edLI9s57wTBvsQV4H1ynVCqP5F+Go/QuydvKEbBWx7tUxwC9xKKiyuKB5UBVj3GPYhbjJVOyDsBW0cdhO2wJMxj9K+2qo/TNkmwO6sD6nIgnq0D6/Di16vG1N2PPUUbtgEz765lOdwg3/bpIqa0oejbXn0zbQwhpCtOu7PPvkGFTTKRhR8SEUcJ9z/isuql3ah3Vc7uUO4dIMWd8SnfVIXb/re/mFd03LqJfCEZO4ug1onhIRTbguaY+vpQimOe+3G+5dODdNgsKGcRTb34E9DCMrm64nE54+VXFGOm0rMmhvro6VVK+MCFVLhti228inZWnjtzPbIdpdzuNM6UHuow8023JXDcvvFnYBl1aXjlBtBRvVaQbU+ky796tE+XBL9ttMdIYbuww1XGqKy+VkZ0bd6bOM4WDrnNZ9zhNF38vFbtRG4RRpH3MNJ0seKLapg0WJ+m+vu+VDkeP1fEH+fx29Rk07QsddN1DTXhKUrSVuYHA1Hf2DgIWDODjxv7Ml3T/xUHNo/tpOHZMqcu6sL+mM7r/7hCIH0xaOkUJbbIv3KdmfVhdg+5o8oGEgmSXNZfS5nKCEGluchXNdyILVNOPa19ubzUyZcV17MlpRl3/Op4usXA0ilMapzyoO8Ohh0LWn86rttefFnDdiODKblAD9grYiBFC9Gk+vb24FUAmlDXcmYaXfRYC9I0cr7SUtcswfQJbmGlKyacmNJiGGqttYCRTEpw2r4JlskQi8p44nc6LDV3/OVQIeqkkMz3rmc2pnYXMKGOWpa182tW6imfDoqwu61VaIROJN5aWmzlXn0CvEtU2uBnOzu0bgEFjYIc+AjL1OEgTx75bdUTTR/calRSb2udQIP2OPJqqKju04819ah0D8gMEBqgZVw2LGiNv9gijgI+gFwaim9zsTTwLuLSK29fcO3Rls+Wuy33jqsHyr7m/hAPh5HsyVT6DRcUfhOeOZOjkIoN0tJecBvgPH3fMRqAv7WJfyTYQUN1zqic8HfKqrYMd6qRo5UIvuxZEwrgQHd+cTklk10ICdE0YZN+8D1DEvZ15T9KRO8FDJaGZLEk6KNju18XQ314ZUNxGdl6p0ATXBdgd3Ar8RRinVPJ3GsyI2/iBv9i+0zQvn1OEKEDS6eUsqy6YOCDN+wNE84fP5ineQLeskXXy/F3LjH/Iv/9YwKjdyAFHEAZ1apHvwMP5xVoHGzpi7q0ka5H6ygujjb8+W/WNFdDN0rB6N+qcOTSRK0at/+4ar7YMW9j+3EyoMVV0bYf1xi0Lc1FXYytoXS4LaEIv8RC88FO/CK7o3/T6rgc7qoi/By92yrYyG3GVxeXHSLYRzY8xq3wFaoJxbVF7opwzc7t5XUwiC8MuEDl0spXqjSGrR/GM0/hewwsUsVVDV7HuIWRRR8osgmsyii3aKoSmdua+8/ZJ6O+FgfAAA='}
 
-for rel, encoded in PAYLOAD.items():
+
+def read(rel):
+    return (ROOT / rel).read_text(encoding='utf-8')
+
+
+def write(rel, text):
     path = ROOT / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(gzip.decompress(base64.b64decode(encoded)))
+    path.write_text(text, encoding='utf-8', newline='\n')
 
-apps_web = ROOT / 'apps' / 'web'
-apps_web.mkdir(parents=True, exist_ok=True)
-shutil.copy2(ROOT / 'index.html', apps_web / 'index.html')
 
-START = {
-    'windows': "MCP Control Hub - Windows\n\n1. Extract this ZIP.\n2. Double-click INSTALL-WINDOWS.bat.\n3. Wait until installation finishes.\n4. Copy the 8-character PAIRING CODE shown at the end.\n5. Return to the MCP Control Hub website, enter the code, choose your AI client, and download its config.\n\nThe same pairing code protects Browser MCP and Computer Control MCP on this computer.\nTo display it again later, open:\n%LOCALAPPDATA%\\MCP-Control-Hub\\SHOW-PAIRING-CODE.bat\n",
-    'macos': "MCP Control Hub - macOS\n\n1. Extract this ZIP and open Terminal in the extracted folder.\n2. Run: chmod +x ./INSTALL-MACOS.sh\n3. Run: ./INSTALL-MACOS.sh\n4. Copy the 8-character PAIRING CODE shown at the end.\n5. Return to the MCP Control Hub website, enter the code, choose your AI client, and download its config.\n\nShow the code later with ~/.mcp-control-hub/show-pairing-code.sh\n",
-    'linux': "MCP Control Hub - Linux\n\n1. Extract this ZIP and open a terminal in the extracted folder.\n2. Run: chmod +x ./INSTALL-LINUX.sh\n3. Run: ./INSTALL-LINUX.sh\n4. Copy the 8-character PAIRING CODE shown at the end.\n5. Return to the MCP Control Hub website, enter the code, choose your AI client, and download its config.\n\nShow the code later with ~/.mcp-control-hub/show-pairing-code.sh\n",
-    'local': "MCP Control Hub - Local bundle\n\nRun the installer matching your operating system. At the end it displays an 8-character PAIRING CODE. Enter that code on the MCP Control Hub website before downloading your AI client's MCP config.\n",
+def replace_once(text, old, new, label):
+    if old not in text:
+        raise RuntimeError(f'Missing expected marker in {label}: {old[:80]!r}')
+    return text.replace(old, new, 1)
+
+
+# ---------------- Browser MCP ----------------
+browser_path = 'servers/browser-mcp/src/index.ts'
+browser = read(browser_path)
+
+browser = browser.replace('import { join } from "node:path";', 'import { dirname, join } from "node:path";')
+browser = browser.replace('import { URL } from "node:url";', 'import { URL, fileURLToPath } from "node:url";')
+if 'from "node:fs"' not in browser:
+    browser = browser.replace('import { randomBytes } from "node:crypto";\n', 'import { randomBytes } from "node:crypto";\nimport { readFileSync } from "node:fs";\n')
+
+# Fix the earlier Playwright readonly-array build error if an older copy was re-uploaded.
+browser = browser.replace('    } as const;\n', '    };\n')
+
+pairing_block_ts = '''const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const PAIRING_FILE = join(MODULE_DIR, "..", ".pairing-code");
+
+function requirePairingCode() {
+  let expected = "";
+  try {
+    expected = readFileSync(PAIRING_FILE, "utf8").trim().toUpperCase();
+  } catch {
+    throw new Error(`Pairing code file is missing: ${PAIRING_FILE}. Run the MCP Control Hub installer again.`);
+  }
+
+  const supplied = (process.env.MCP_PAIRING_CODE || "").trim().toUpperCase();
+  if (!supplied) {
+    throw new Error("MCP_PAIRING_CODE is missing. Enter the pairing code shown by the installer when generating your MCP config.");
+  }
+  if (supplied !== expected) {
+    throw new Error("MCP pairing code is invalid for this computer.");
+  }
 }
 
+'''
+if 'function requirePairingCode()' not in browser:
+    browser = replace_once(browser, 'class BrowserRuntime {', pairing_block_ts + 'class BrowserRuntime {', browser_path)
+
+if 'requirePairingCode();\nvoid serveStdio(buildServer);' not in browser:
+    browser = replace_once(browser, 'void serveStdio(buildServer);', 'requirePairingCode();\nvoid serveStdio(buildServer);', browser_path)
+
+write(browser_path, browser)
+write('servers/browser-mcp/.env.example', 'MCP_PAIRING_CODE=YOUR_8_CHARACTER_CODE\n')
+
+
+# ---------------- Computer MCP ----------------
+computer_path = 'servers/computer-mcp/server.py'
+computer = read(computer_path)
+if 'from pathlib import Path' not in computer:
+    computer = computer.replace('import platform\n', 'import platform\nfrom pathlib import Path\n')
+
+pairing_block_py = '''\nPAIRING_FILE = Path(__file__).with_name(".pairing-code")
+
+
+def _require_pairing_code() -> None:
+    try:
+        expected = PAIRING_FILE.read_text(encoding="utf-8").strip().upper()
+    except OSError as exc:
+        raise RuntimeError(f"Pairing code file is missing: {PAIRING_FILE}. Run the MCP Control Hub installer again.") from exc
+
+    supplied = os.getenv("MCP_PAIRING_CODE", "").strip().upper()
+    if not supplied:
+        raise RuntimeError(
+            "MCP_PAIRING_CODE is missing. Enter the pairing code shown by the installer when generating your MCP config."
+        )
+    if supplied != expected:
+        raise RuntimeError("MCP pairing code is invalid for this computer.")
+
+
+_require_pairing_code()
+'''
+if '_require_pairing_code()' not in computer:
+    computer = replace_once(computer, 'mcp = MCPServer("Computer Control MCP")\n', 'mcp = MCPServer("Computer Control MCP")\n' + pairing_block_py, computer_path)
+
+write(computer_path, computer)
+write('servers/computer-mcp/.env.example', 'MCP_PAIRING_CODE=YOUR_8_CHARACTER_CODE\nMCP_COMPUTER_ALLOW_SCREENSHOTS=1\nMCP_COMPUTER_ALLOW_ACTIONS=1\n')
+
+
+# ---------------- Windows installer ----------------
+win_path = 'INSTALL-WINDOWS.ps1'
+win = read(win_path)
+if '$PairingFile =' not in win:
+    win = replace_once(win, "$ComputerDir = Join-Path $InstallRoot 'servers\\computer-mcp'\n", "$ComputerDir = Join-Path $InstallRoot 'servers\\computer-mcp'\n$PairingFile = Join-Path $InstallRoot 'pairing-code.txt'\n", win_path)
+
+pairing_ps = r'''
+# Keep one stable pairing code for this computer. Reinstalling preserves it.
+if (Test-Path $PairingFile) {
+  $PairingCode = (Get-Content $PairingFile -Raw).Trim().ToUpperInvariant()
+} else {
+  $Alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'.ToCharArray()
+  $Bytes = New-Object byte[] 8
+  [System.Security.Cryptography.RandomNumberGenerator]::Fill($Bytes)
+  $Chars = for ($i = 0; $i -lt 8; $i++) { $Alphabet[$Bytes[$i] % $Alphabet.Length] }
+  $PairingCode = -join $Chars
+  Set-Content -Path $PairingFile -Value $PairingCode -Encoding ASCII
+}
+Set-Content -Path (Join-Path $BrowserDir '.pairing-code') -Value $PairingCode -Encoding ASCII
+Set-Content -Path (Join-Path $ComputerDir '.pairing-code') -Value $PairingCode -Encoding ASCII
+
+$ShowCodeBat = Join-Path $InstallRoot 'SHOW-PAIRING-CODE.bat'
+$ShowCodeContents = "@echo off`r`necho.`r`necho MCP Control Hub pairing code:`r`necho.`r`ntype `"%LOCALAPPDATA%\\MCP-Control-Hub\\pairing-code.txt`"`r`necho.`r`npause`r`n"
+Set-Content -Path $ShowCodeBat -Value $ShowCodeContents -Encoding ASCII
+'''
+if '# Keep one stable pairing code for this computer.' not in win:
+    win = replace_once(win, "Copy-Item $ComputerSource $ComputerDir -Recurse -Force\n", "Copy-Item $ComputerSource $ComputerDir -Recurse -Force\n" + pairing_ps + "\n", win_path)
+
+if 'YOUR PAIRING CODE' not in win:
+    win = replace_once(win, "Write-Host 'Installation completed successfully.' -ForegroundColor Green\n", "Write-Host 'Installation completed successfully.' -ForegroundColor Green\nWrite-Host ''\nWrite-Host '=========================================' -ForegroundColor Yellow\nWrite-Host '          YOUR PAIRING CODE' -ForegroundColor Yellow\nWrite-Host ''\nWrite-Host (\"              {0}\" -f $PairingCode) -ForegroundColor Cyan\nWrite-Host ''\nWrite-Host '=========================================' -ForegroundColor Yellow\nWrite-Host 'Enter this code on the MCP Control Hub website before downloading your AI config.' -ForegroundColor Green\nWrite-Host (\"Show it again later: {0}\" -f $ShowCodeBat) -ForegroundColor Gray\n", win_path)
+write(win_path, win)
+
+
+# ---------------- macOS / Linux installers ----------------
+def patch_shell(rel):
+    text = read(rel)
+    if 'PAIRING_FILE="$INSTALL_ROOT/pairing-code.txt"' not in text:
+        text = replace_once(text, 'COMPUTER_DIR="$INSTALL_ROOT/servers/computer-mcp"\n', 'COMPUTER_DIR="$INSTALL_ROOT/servers/computer-mcp"\nPAIRING_FILE="$INSTALL_ROOT/pairing-code.txt"\n', rel)
+
+    block = '''\n# Keep one stable pairing code for this computer. Reinstalling preserves it.\nif [[ -f "$PAIRING_FILE" ]]; then\n  PAIRING_CODE="$(tr -d '\\r\\n ' < "$PAIRING_FILE" | tr '[:lower:]' '[:upper:]')"\nelse\n  if command -v openssl >/dev/null 2>&1; then\n    PAIRING_CODE="$(openssl rand -hex 4 | tr '[:lower:]' '[:upper:]')"\n  else\n    PAIRING_CODE="$(python3 - <<'PY'\nimport secrets\nalphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'\nprint(''.join(secrets.choice(alphabet) for _ in range(8)))\nPY\n)"\n  fi\n  printf '%s\\n' "$PAIRING_CODE" > "$PAIRING_FILE"\n  chmod 600 "$PAIRING_FILE"\nfi\nprintf '%s\\n' "$PAIRING_CODE" > "$BROWSER_DIR/.pairing-code"\nprintf '%s\\n' "$PAIRING_CODE" > "$COMPUTER_DIR/.pairing-code"\nchmod 600 "$BROWSER_DIR/.pairing-code" "$COMPUTER_DIR/.pairing-code"\ncat > "$INSTALL_ROOT/SHOW-PAIRING-CODE.sh" <<'SH'\n#!/usr/bin/env bash\ncat "$HOME/.mcp-control-hub/pairing-code.txt"\nSH\nchmod +x "$INSTALL_ROOT/SHOW-PAIRING-CODE.sh"\n'''
+    if '# Keep one stable pairing code for this computer.' not in text:
+        text = replace_once(text, 'cp -R "$COMPUTER_SOURCE" "$COMPUTER_DIR"\n', 'cp -R "$COMPUTER_SOURCE" "$COMPUTER_DIR"\n' + block + '\n', rel)
+
+    if 'YOUR PAIRING CODE' not in text:
+        text = replace_once(text, "printf '\\nInstallation completed successfully.\\n'\n", "printf '\\nInstallation completed successfully.\\n'\nprintf '\\n=========================================\\n'\nprintf '          YOUR PAIRING CODE\\n\\n'\nprintf '              %s\\n' \"$PAIRING_CODE\"\nprintf '\\n=========================================\\n'\nprintf 'Enter this code on the MCP Control Hub website before downloading your AI config.\\n'\nprintf 'Show it again later with: %s\\n' \"$INSTALL_ROOT/SHOW-PAIRING-CODE.sh\"\n", rel)
+    write(rel, text)
+
+patch_shell('INSTALL-MACOS.sh')
+patch_shell('INSTALL-LINUX.sh')
+
+
+# ---------------- Website ----------------
+site_path = 'index.html'
+site = read(site_path)
+
+pairing_html = '''\n        <div class="info-box" id="pairing-box">\n          <strong>קוד החיבור של ה-MCP</strong>\n          <p>אחרי ההתקנה ה-MCP מציג קוד בן 8 תווים. הכנס אותו כאן ורק אז הורד את קובץ ההגדרה ל-AI.</p>\n          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">\n            <input id="pairing-code" dir="ltr" maxlength="8" autocomplete="off" spellcheck="false" placeholder="לדוגמה: 7K4P9M2Q" style="min-width:220px;padding:12px 14px;border:1px solid #cfd6e4;border-radius:10px;font:700 16px ui-monospace,monospace;text-transform:uppercase" />\n            <span id="pairing-status" style="font-size:13px;color:#667085">נדרש לפני הורדת קובץ ההגדרה</span>\n          </div>\n        </div>\n'''
+if 'id="pairing-code"' not in site:
+    marker = '        <p class="guide-note" id="client-note"></p>\n'
+    site = replace_once(site, marker, pairing_html + '\n' + marker, site_path)
+
+if 'let pairingCode =' not in site:
+    site = replace_once(site, '  let client = "claude";\n', '  let client = "claude";\n  let pairingCode = "";\n', site_path)
+
+if 'const pairingCodeInput' not in site:
+    site = replace_once(site, '  const changeOsButton = document.getElementById("change-os");\n', '  const changeOsButton = document.getElementById("change-os");\n  const pairingCodeInput = document.getElementById("pairing-code");\n  const pairingStatus = document.getElementById("pairing-status");\n', site_path)
+
+# Add pairing env to both server entries.
+site = site.replace('          args: ["/d", "/s", "/c", "node \\"%LOCALAPPDATA%\\\\MCP-Control-Hub\\\\servers\\\\browser-mcp\\\\dist\\\\index.js\\\""]\n        },', '          args: ["/d", "/s", "/c", "node \\"%LOCALAPPDATA%\\\\MCP-Control-Hub\\\\servers\\\\browser-mcp\\\\dist\\\\index.js\\\""],\n          env: { MCP_PAIRING_CODE: pairingCode }\n        },')
+site = site.replace('          env: {\n            MCP_COMPUTER_ALLOW_SCREENSHOTS: "1",', '          env: {\n            MCP_PAIRING_CODE: pairingCode,\n            MCP_COMPUTER_ALLOW_SCREENSHOTS: "1",')
+site = site.replace('          args: ["-lc", "node \\"$HOME/.mcp-control-hub/servers/browser-mcp/dist/index.js\\\""]\n        },', '          args: ["-lc", "node \\"$HOME/.mcp-control-hub/servers/browser-mcp/dist/index.js\\\""],\n          env: { MCP_PAIRING_CODE: pairingCode }\n        },')
+
+if 'function validPairingCode()' not in site:
+    helper = '''\n  function validPairingCode() {\n    return /^[A-Z2-9]{8}$/.test(pairingCode);\n  }\n\n  function syncPairingUi() {\n    pairingCode = String(pairingCodeInput.value || "").toUpperCase().replace(/[^A-Z2-9]/g, "").slice(0, 8);\n    pairingCodeInput.value = pairingCode;\n    const ok = validPairingCode();\n    pairingStatus.textContent = ok ? "הקוד מוכן — אפשר להוריד קובץ הגדרה" : "הכנס את הקוד בן 8 התווים שהמתקין הציג";\n    pairingStatus.style.color = ok ? "#17803d" : "#667085";\n    downloadConfigButton.disabled = !ok;\n    downloadConfigButton.style.opacity = ok ? "1" : ".55";\n    downloadConfigButton.style.cursor = ok ? "pointer" : "not-allowed";\n  }\n'''
+    site = replace_once(site, '  function installLocation(currentOs) {', helper + '\n  function installLocation(currentOs) {', site_path)
+
+if 'pairingCodeInput.addEventListener' not in site:
+    site = replace_once(site, '  downloadConfigButton.addEventListener("click", downloadConfig);\n', '  pairingCodeInput.addEventListener("input", () => { syncPairingUi(); render(); });\n  downloadConfigButton.addEventListener("click", () => {\n    if (!validPairingCode()) {\n      pairingCodeInput.focus();\n      pairingStatus.textContent = "צריך להזין קודם את קוד החיבור שה-MCP הציג";\n      return;\n    }\n    downloadConfig();\n  });\n', site_path)
+
+if 'syncPairingUi();\n  render();' not in site:
+    site = site.replace('  render();\n})();', '  syncPairingUi();\n  render();\n})();')
+
+write(site_path, site)
+write('apps/web/index.html', site)
+
+
+# ---------------- README ----------------
+readme = read('README.md')
+section = '''\n## Pairing code\n\nAfter installation, MCP Control Hub generates one stable 8-character pairing code for the computer. Enter that code on the website before downloading an AI configuration. The generated config passes it as `MCP_PAIRING_CODE`; both local MCP servers compare it with the locally stored code and refuse to start if it does not match.\n\n- Windows: `%LOCALAPPDATA%\\MCP-Control-Hub\\SHOW-PAIRING-CODE.bat`\n- macOS/Linux: `~/.mcp-control-hub/SHOW-PAIRING-CODE.sh`\n\n'''
+if '## Pairing code' not in readme:
+    readme += section
+write('README.md', readme)
+
+
+# ---------------- Distribution ZIPs ----------------
 server_files = [
     'servers/browser-mcp/package.json',
     'servers/browser-mcp/tsconfig.json',
@@ -32,27 +202,24 @@ server_files = [
     'servers/computer-mcp/.env.example',
 ]
 
-def make_zip(name, installers, start_key):
-    out = ROOT / 'downloads' / name
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-        for rel in installers + server_files:
+platforms = {
+    'Windows': ['INSTALL-WINDOWS.bat', 'INSTALL-WINDOWS.ps1'],
+    'macOS': ['INSTALL-MACOS.sh'],
+    'Linux': ['INSTALL-LINUX.sh'],
+    'Local': ['INSTALL-WINDOWS.bat', 'INSTALL-WINDOWS.ps1', 'INSTALL-MACOS.sh', 'INSTALL-LINUX.sh'],
+}
+
+(ROOT / 'downloads').mkdir(exist_ok=True)
+for name, installers in platforms.items():
+    out = ROOT / 'downloads' / f'MCP-Control-Hub-{name}.zip'
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for rel in installers + server_files + ['README.md', 'SECURITY.md']:
             path = ROOT / rel
             if path.exists():
-                z.write(path, rel)
-        z.writestr('START-HERE.txt', START[start_key])
-    return out
-
-outputs = [
-    make_zip('MCP-Control-Hub-Windows.zip', ['INSTALL-WINDOWS.ps1', 'INSTALL-WINDOWS.bat'], 'windows'),
-    make_zip('MCP-Control-Hub-macOS.zip', ['INSTALL-MACOS.sh'], 'macos'),
-    make_zip('MCP-Control-Hub-Linux.zip', ['INSTALL-LINUX.sh'], 'linux'),
-    make_zip('MCP-Control-Hub-Local.zip', ['INSTALL-WINDOWS.ps1', 'INSTALL-WINDOWS.bat', 'INSTALL-MACOS.sh', 'INSTALL-LINUX.sh'], 'local'),
-]
-
-(apps_web / 'downloads').mkdir(parents=True, exist_ok=True)
-for out in outputs:
+                zf.write(path, rel)
     shutil.copy2(out, ROOT / out.name)
-    shutil.copy2(out, apps_web / 'downloads' / out.name)
+    app_downloads = ROOT / 'apps' / 'web' / 'downloads'
+    app_downloads.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(out, app_downloads / out.name)
 
-print('Pairing-code update applied and installer ZIPs rebuilt.')
+print('Pairing-code update applied successfully.')
