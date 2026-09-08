@@ -1,0 +1,401 @@
+import { randomUUID } from "node:crypto";
+import { createServer } from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import cors from "cors";
+import express from "express";
+import { WebSocket, WebSocketServer } from "ws";
+import { z } from "zod";
+
+import {
+  registerAppResource,
+  registerAppTool,
+  RESOURCE_MIME_TYPE,
+} from "@modelcontextprotocol/ext-apps/server";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+
+const PORT = Number(process.env.PORT || 8787);
+const HOST = process.env.HOST || "0.0.0.0";
+const WIDGET_URI = "ui://mcp-control-hub/control-panel-v1.html";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const widgetHtml = fs.readFileSync(path.resolve(__dirname, "..", "widget", "index.html"), "utf8");
+
+type Companion = {
+  code: string;
+  socket: WebSocket;
+  connectedAt: number;
+};
+
+type Pending = {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+};
+
+const companions = new Map<string, Companion>();
+const sessions = new Map<string, { pairingCode: string; lastUsed: number }>();
+const pending = new Map<string, Pending>();
+
+function normalizePairingCode(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function getPairingCodeForSession(sessionToken: string) {
+  const session = sessions.get(sessionToken);
+  if (!session) throw new Error("This plugin session is not paired. Pair the computer first.");
+  session.lastUsed = Date.now();
+  return session.pairingCode;
+}
+
+async function sendCommand(pairingCode: string, operation: string, args: Record<string, unknown>) {
+  const companion = companions.get(pairingCode);
+  if (!companion || companion.socket.readyState !== WebSocket.OPEN) {
+    throw new Error("The MCP Control Hub Companion is offline. Start it on the paired computer and try again.");
+  }
+
+  const id = randomUUID();
+  const payload = JSON.stringify({ id, operation, args });
+
+  return await new Promise<unknown>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error(`Timed out waiting for the local companion while running ${operation}.`));
+    }, 30_000);
+
+    pending.set(id, { resolve, reject, timer });
+    companion.socket.send(payload, (error) => {
+      if (!error) return;
+      clearTimeout(timer);
+      pending.delete(id);
+      reject(error);
+    });
+  });
+}
+
+function createPluginServer() {
+  const server = new McpServer(
+    { name: "mcp-control-hub", version: "0.1.0" },
+    {
+      instructions:
+        "MCP Control Hub controls the user's paired local computer. Pair once with pair_device, then use Chrome tools for browser-only work and Computer tools for whole-screen input. Prefer the least-powerful tool that completes the task.",
+    },
+  );
+
+  registerAppResource(
+    server,
+    "MCP Control Hub panel",
+    WIDGET_URI,
+    {
+      mimeType: RESOURCE_MIME_TYPE,
+      description: "Status panel for MCP Control Hub pairing and control modes.",
+    },
+    async () => ({
+      contents: [
+        {
+          uri: WIDGET_URI,
+          mimeType: RESOURCE_MIME_TYPE,
+          text: widgetHtml,
+          _meta: {
+            ui: {
+              prefersBorder: true,
+              csp: { connectDomains: [], resourceDomains: [] },
+            },
+          },
+        },
+      ],
+    }),
+  );
+
+  registerAppTool(
+    server,
+    "pair_device",
+    {
+      title: "Pair MCP Control Hub",
+      description: "Use this when the user wants to connect their locally installed MCP Control Hub Companion to the plugin.",
+      inputSchema: { pairing_code: z.string().min(6).max(32) },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
+    },
+    async ({ pairing_code }) => {
+      const code = normalizePairingCode(pairing_code);
+      const companion = companions.get(code);
+      if (!companion || companion.socket.readyState !== WebSocket.OPEN) {
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: "No online companion was found for that pairing code." }],
+          structuredContent: { paired: false },
+        };
+      }
+
+      const sessionToken = randomUUID();
+      sessions.set(sessionToken, { pairingCode: code, lastUsed: Date.now() });
+      return {
+        content: [{ type: "text" as const, text: "Paired successfully. Chrome Control and Computer Control are ready." }],
+        structuredContent: {
+          paired: true,
+          session_token: sessionToken,
+          capabilities: ["chrome", "computer"],
+        },
+      };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "control_status",
+    {
+      title: "Check control status",
+      description: "Use this when the user wants to know whether their paired computer is currently connected.",
+      inputSchema: { session_token: z.string() },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
+    },
+    async ({ session_token }) => {
+      const code = getPairingCodeForSession(session_token);
+      const online = companions.get(code)?.socket.readyState === WebSocket.OPEN;
+      return {
+        content: [{ type: "text" as const, text: online ? "The paired computer is online." : "The paired computer is offline." }],
+        structuredContent: { paired: true, online },
+      };
+    },
+  );
+
+  const sessionSchema = { session_token: z.string() };
+
+  registerAppTool(
+    server,
+    "chrome_open",
+    {
+      title: "Open Chrome",
+      description: "Use this when the user wants to open the controlled Chrome browser on their paired computer.",
+      inputSchema: sessionSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
+    },
+    async ({ session_token }) => {
+      const result = await sendCommand(getPairingCodeForSession(session_token), "browser.open", {});
+      return { content: [{ type: "text" as const, text: "Chrome is open and ready." }], structuredContent: { mode: "chrome", result } };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "chrome_navigate",
+    {
+      title: "Navigate Chrome",
+      description: "Use this when the user wants the paired Chrome browser to open a URL.",
+      inputSchema: { session_token: z.string(), url: z.string().url() },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
+    },
+    async ({ session_token, url }) => {
+      const result = await sendCommand(getPairingCodeForSession(session_token), "browser.navigate", { url });
+      return { content: [{ type: "text" as const, text: `Opened ${url} in Chrome.` }], structuredContent: { mode: "chrome", url, result } };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "chrome_click",
+    {
+      title: "Click in Chrome",
+      description: "Use this when the user wants to click a visible point in the controlled Chrome page.",
+      inputSchema: { session_token: z.string(), x: z.number().nonnegative(), y: z.number().nonnegative() },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    },
+    async ({ session_token, x, y }) => {
+      await sendCommand(getPairingCodeForSession(session_token), "browser.click", { x, y });
+      return { content: [{ type: "text" as const, text: `Clicked Chrome at ${x}, ${y}.` }] };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "chrome_type",
+    {
+      title: "Type in Chrome",
+      description: "Use this when the user wants text typed into the currently focused field in controlled Chrome.",
+      inputSchema: { session_token: z.string(), text: z.string().max(10_000) },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    },
+    async ({ session_token, text }) => {
+      await sendCommand(getPairingCodeForSession(session_token), "browser.type", { text });
+      return { content: [{ type: "text" as const, text: "Typed the requested text in Chrome." }] };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "chrome_snapshot",
+    {
+      title: "See Chrome",
+      description: "Use this when the AI needs a fresh screenshot of the controlled Chrome page before deciding what to do next.",
+      inputSchema: sessionSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
+    },
+    async ({ session_token }) => {
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "browser.snapshot", {})) as { base64?: string; width?: number; height?: number };
+      if (!result?.base64) throw new Error("The local companion did not return a Chrome screenshot.");
+      return {
+        content: [
+          { type: "text" as const, text: "Fresh Chrome screenshot." },
+          { type: "image" as const, data: result.base64, mimeType: "image/png" },
+        ],
+        structuredContent: { mode: "chrome", width: result.width, height: result.height },
+      };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "computer_snapshot",
+    {
+      title: "See the computer screen",
+      description: "Use this when the AI needs a fresh screenshot of the paired computer before interacting with desktop apps.",
+      inputSchema: sessionSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+      _meta: { ui: { resourceUri: WIDGET_URI } },
+    },
+    async ({ session_token }) => {
+      const result = (await sendCommand(getPairingCodeForSession(session_token), "computer.snapshot", {})) as { base64?: string; width?: number; height?: number };
+      if (!result?.base64) throw new Error("The local companion did not return a desktop screenshot.");
+      return {
+        content: [
+          { type: "text" as const, text: "Fresh desktop screenshot." },
+          { type: "image" as const, data: result.base64, mimeType: "image/png" },
+        ],
+        structuredContent: { mode: "computer", width: result.width, height: result.height },
+      };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "mouse_move",
+    {
+      title: "Move mouse",
+      description: "Use this when the user wants the AI to move the mouse pointer on the paired computer.",
+      inputSchema: { session_token: z.string(), x: z.number().nonnegative(), y: z.number().nonnegative(), duration: z.number().min(0).max(5).optional() },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async ({ session_token, x, y, duration }) => {
+      await sendCommand(getPairingCodeForSession(session_token), "mouse.move", { x, y, duration });
+      return { content: [{ type: "text" as const, text: `Moved the mouse to ${x}, ${y}.` }] };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "mouse_click",
+    {
+      title: "Click mouse",
+      description: "Use this when the user wants the AI to click on the paired computer.",
+      inputSchema: { session_token: z.string(), button: z.enum(["left", "right", "middle"]).default("left"), clicks: z.number().int().min(1).max(3).default(1) },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async ({ session_token, button, clicks }) => {
+      await sendCommand(getPairingCodeForSession(session_token), "mouse.click", { button, clicks });
+      return { content: [{ type: "text" as const, text: `Clicked the ${button} mouse button.` }] };
+    },
+  );
+
+  registerAppTool(
+    server,
+    "keyboard_type",
+    {
+      title: "Type on the computer",
+      description: "Use this when the user wants the AI to type text into the currently focused desktop application.",
+      inputSchema: { session_token: z.string(), text: z.string().max(10_000), interval: z.number().min(0).max(1).optional() },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async ({ session_token, text, interval }) => {
+      await sendCommand(getPairingCodeForSession(session_token), "keyboard.type", { text, interval });
+      return { content: [{ type: "text" as const, text: "Typed the requested text on the paired computer." }] };
+    },
+  );
+
+  return server;
+}
+
+const app = express();
+app.use(cors({ origin: true, exposedHeaders: ["Mcp-Session-Id"] }));
+app.use(express.json({ limit: "4mb" }));
+
+app.get("/health", (_req, res) => {
+  res.json({ ok: true, service: "mcp-control-hub-plugin", companions: companions.size });
+});
+
+app.post("/mcp", async (req, res) => {
+  const server = createPluginServer();
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  res.on("close", () => {
+    void transport.close();
+    void server.close();
+  });
+  await server.connect(transport);
+  await transport.handleRequest(req, res, req.body);
+});
+
+const httpServer = createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+
+httpServer.on("upgrade", (req, socket, head) => {
+  const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+  if (url.pathname !== "/companion") {
+    socket.destroy();
+    return;
+  }
+  const code = normalizePairingCode(url.searchParams.get("code") || "");
+  if (code.length < 6) {
+    socket.destroy();
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    (ws as WebSocket & { pairingCode?: string }).pairingCode = code;
+    wss.emit("connection", ws, req);
+  });
+});
+
+wss.on("connection", (socket) => {
+  const code = (socket as WebSocket & { pairingCode?: string }).pairingCode!;
+  const old = companions.get(code);
+  if (old && old.socket !== socket) old.socket.close(4000, "New companion connection replaced this one.");
+  companions.set(code, { code, socket, connectedAt: Date.now() });
+
+  socket.on("message", (raw) => {
+    try {
+      const message = JSON.parse(raw.toString()) as { id?: string; ok?: boolean; result?: unknown; error?: string };
+      if (!message.id) return;
+      const waiter = pending.get(message.id);
+      if (!waiter) return;
+      clearTimeout(waiter.timer);
+      pending.delete(message.id);
+      if (message.ok === false) waiter.reject(new Error(message.error || "Local companion command failed."));
+      else waiter.resolve(message.result);
+    } catch {
+      // Ignore malformed companion messages rather than crashing the plugin server.
+    }
+  });
+
+  socket.on("close", () => {
+    if (companions.get(code)?.socket === socket) companions.delete(code);
+  });
+});
+
+setInterval(() => {
+  const cutoff = Date.now() - 12 * 60 * 60 * 1000;
+  for (const [token, session] of sessions) {
+    if (session.lastUsed < cutoff) sessions.delete(token);
+  }
+}, 15 * 60 * 1000).unref();
+
+httpServer.listen(PORT, HOST, () => {
+  console.log(`MCP Control Hub plugin server listening on http://${HOST}:${PORT}`);
+  console.log(`MCP endpoint: http://${HOST}:${PORT}/mcp`);
+  console.log(`Companion WebSocket: ws://${HOST}:${PORT}/companion?code=PAIRING_CODE`);
+});
