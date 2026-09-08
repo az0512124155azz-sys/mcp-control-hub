@@ -1,0 +1,4 @@
+playwright==1.55.0
+pyautogui==0.9.54
+pillow==11.3.0
+websocket-client==1.8.0
