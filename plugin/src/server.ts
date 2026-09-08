@@ -368,7 +368,24 @@ async function handleMcp(req: express.Request, res: express.Response) {
 }
 
 app.post("/mcp", handleMcp);
-app.get("/mcp", handleMcp);
+app.get(
+  "/mcp",
+  (req, res, next) => {
+    const accept = (req.header("accept") || "").toLowerCase();
+    if (accept.includes("text/event-stream")) {
+      next();
+      return;
+    }
+
+    res.json({
+      ok: true,
+      service: "mcp-control-hub-plugin",
+      transport: "streamable-http",
+      message: "MCP endpoint is ready. Connect ChatGPT to this URL.",
+    });
+  },
+  handleMcp,
+);
 app.delete("/mcp", handleMcp);
 
 const httpServer = createServer(app);
