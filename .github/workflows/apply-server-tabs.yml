@@ -1,4 +1,4 @@
-name: Apply separate MCP tabs
+name: Apply separate MCP templates
 on:
   push:
     branches: [main]
@@ -10,11 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python tools/add_server_tabs.py
-      - name: Commit site update
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build two MCP templates and launcher bundles
+        run: python tools/add_server_tabs.py
+      - name: Validate shell installers
+        run: |
+          bash -n INSTALL-MACOS.sh
+          bash -n INSTALL-LINUX.sh
+      - name: Commit site and bundles
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html apps/web/index.html
-          git commit -m 'Split Chrome and screen-control setup into tabs' || exit 0
+          git add index.html apps/web/index.html INSTALL-WINDOWS.ps1 INSTALL-MACOS.sh INSTALL-LINUX.sh downloads/*.zip MCP-Control-Hub-*.zip apps/web/downloads/*.zip
+          git commit -m 'Show two independent MCP setup templates' || exit 0
           git push
