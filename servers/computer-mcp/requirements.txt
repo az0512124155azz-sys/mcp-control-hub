@@ -1,0 +1,4 @@
+mcp[cli]>=2.0.0,<3
+pyautogui>=0.9.54,<1
+pillow>=10,<13
+pyperclip>=1.9,<2
