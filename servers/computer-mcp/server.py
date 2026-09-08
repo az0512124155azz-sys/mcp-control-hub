@@ -15,6 +15,7 @@ from __future__ import annotations
 import io
 import os
 import platform
+from pathlib import Path
 from typing import Literal
 
 import pyautogui
@@ -24,6 +25,26 @@ from mcp.server.mcpserver import Image
 
 
 mcp = MCPServer("Computer Control MCP")
+
+PAIRING_FILE = Path(__file__).with_name(".pairing-code")
+
+
+def _require_pairing_code() -> None:
+    try:
+        expected = PAIRING_FILE.read_text(encoding="utf-8").strip().upper()
+    except OSError as exc:
+        raise RuntimeError(f"Pairing code file is missing: {PAIRING_FILE}. Run the MCP Control Hub installer again.") from exc
+
+    supplied = os.getenv("MCP_PAIRING_CODE", "").strip().upper()
+    if not supplied:
+        raise RuntimeError(
+            "MCP_PAIRING_CODE is missing. Enter the pairing code shown by the installer when generating your MCP config."
+        )
+    if supplied != expected:
+        raise RuntimeError("MCP pairing code is invalid for this computer.")
+
+
+_require_pairing_code()
 
 # Keep the human emergency stop. Do not disable this in production.
 pyautogui.FAILSAFE = True

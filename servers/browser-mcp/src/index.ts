@@ -1,8 +1,9 @@
 import { createServer, type Server as HttpServer } from "node:http";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
-import { URL } from "node:url";
+import { dirname, join } from "node:path";
+import { URL, fileURLToPath } from "node:url";
 
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
@@ -21,6 +22,26 @@ import * as z from "zod/v4";
  * as a small sidecar is both simpler and more accurate than pretending video
  * is a native MCP primitive.
  */
+
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const PAIRING_FILE = join(MODULE_DIR, "..", ".pairing-code");
+
+function requirePairingCode() {
+  let expected = "";
+  try {
+    expected = readFileSync(PAIRING_FILE, "utf8").trim().toUpperCase();
+  } catch {
+    throw new Error(`Pairing code file is missing: ${PAIRING_FILE}. Run the MCP Control Hub installer again.`);
+  }
+
+  const supplied = (process.env.MCP_PAIRING_CODE || "").trim().toUpperCase();
+  if (!supplied) {
+    throw new Error("MCP_PAIRING_CODE is missing. Enter the pairing code shown by the installer when generating your MCP config.");
+  }
+  if (supplied !== expected) {
+    throw new Error("MCP pairing code is invalid for this computer.");
+  }
+}
 
 class BrowserRuntime {
   private context: BrowserContext | null = null;
@@ -51,7 +72,7 @@ class BrowserRuntime {
       headless: false,
       viewport: { width, height },
       args: ["--disable-infobars"],
-    } as const;
+    };
 
     try {
       // Prefer the user's installed Google Chrome when it exists.
@@ -456,5 +477,6 @@ process.on("SIGINT", () => void runtime.close().finally(() => process.exit(0)));
 process.on("SIGTERM", () => void runtime.close().finally(() => process.exit(0)));
 
 // serveStdio keeps stdout reserved for the MCP protocol. Diagnostic logs go to stderr.
+requirePairingCode();
 void serveStdio(buildServer);
 console.error("Browser Dual-Control MCP is ready on stdio.");

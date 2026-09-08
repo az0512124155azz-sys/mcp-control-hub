@@ -89,3 +89,11 @@ apps/web/index.html
 ```
 
 `apps/web/index.html` נשאר כעותק תאימות לפרויקט Vercel ישן. לפריסה חדשה עדיף להשתמש ב-`index.html` שבשורש.
+
+## Pairing code
+
+After installation, MCP Control Hub generates one stable 8-character pairing code for the computer. Enter that code on the website before downloading an AI configuration. The generated config passes it as `MCP_PAIRING_CODE`; both local MCP servers compare it with the locally stored code and refuse to start if it does not match.
+
+- Windows: `%LOCALAPPDATA%\MCP-Control-Hub\SHOW-PAIRING-CODE.bat`
+- macOS/Linux: `~/.mcp-control-hub/SHOW-PAIRING-CODE.sh`
+

@@ -62,6 +62,25 @@ if (Test-Path $ComputerDir) { Remove-Item $ComputerDir -Recurse -Force }
 Copy-Item $BrowserSource $BrowserDir -Recurse -Force
 Copy-Item $ComputerSource $ComputerDir -Recurse -Force
 
+# Keep one stable pairing code for this computer. Reinstalling preserves it.
+if (Test-Path $PairingFile) {
+  $PairingCode = (Get-Content $PairingFile -Raw).Trim().ToUpperInvariant()
+} else {
+  $Alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'.ToCharArray()
+  $Bytes = New-Object byte[] 8
+  [System.Security.Cryptography.RandomNumberGenerator]::Fill($Bytes)
+  $Chars = for ($i = 0; $i -lt 8; $i++) { $Alphabet[$Bytes[$i] % $Alphabet.Length] }
+  $PairingCode = -join $Chars
+  Set-Content -Path $PairingFile -Value $PairingCode -Encoding ASCII
+}
+Set-Content -Path (Join-Path $BrowserDir '.pairing-code') -Value $PairingCode -Encoding ASCII
+Set-Content -Path (Join-Path $ComputerDir '.pairing-code') -Value $PairingCode -Encoding ASCII
+
+$ShowCodeBat = Join-Path $InstallRoot 'SHOW-PAIRING-CODE.bat'
+$ShowCodeContents = "@echo off`r`necho.`r`necho MCP Control Hub pairing code:`r`necho.`r`ntype `"%LOCALAPPDATA%\\MCP-Control-Hub\\pairing-code.txt`"`r`necho.`r`npause`r`n"
+Set-Content -Path $ShowCodeBat -Value $ShowCodeContents -Encoding ASCII
+
+
 Write-Host ''
 Write-Host '[1/2] Installing Browser MCP...' -ForegroundColor Cyan
 Push-Location $BrowserDir
