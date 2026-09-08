@@ -1,0 +1,11 @@
+MCP Control Hub - Windows
+
+1. Extract this ZIP.
+2. Double-click INSTALL-WINDOWS.bat.
+3. Wait until installation finishes.
+4. Copy the 8-character PAIRING CODE shown at the end.
+5. Return to the MCP Control Hub website, enter the code, choose your AI client, and download its config.
+
+The same pairing code protects Browser MCP and Computer Control MCP on this computer.
+To display it again later, open:
+%LOCALAPPDATA%\MCP-Control-Hub\SHOW-PAIRING-CODE.bat

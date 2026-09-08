@@ -12,9 +12,12 @@ Safety defaults:
 
 from __future__ import annotations
 
+import hmac
 import io
 import os
 import platform
+import sys
+from pathlib import Path
 from typing import Literal
 
 import pyautogui
@@ -29,6 +32,40 @@ mcp = MCPServer("Computer Control MCP")
 pyautogui.FAILSAFE = True
 pyautogui.PAUSE = float(os.getenv("MCP_COMPUTER_ACTION_PAUSE", "0.05"))
 
+
+
+def _pairing_file() -> Path:
+    override = os.getenv("MCP_PAIRING_FILE")
+    if override:
+        return Path(override).expanduser()
+    if platform.system() == "Windows" and os.getenv("LOCALAPPDATA"):
+        return Path(os.environ["LOCALAPPDATA"]) / "MCP-Control-Hub" / "pairing-code.txt"
+    return Path.home() / ".mcp-control-hub" / "pairing-code.txt"
+
+
+def _require_pairing() -> None:
+    path = _pairing_file()
+    try:
+        expected = path.read_text(encoding="utf-8").strip().upper()
+    except OSError:
+        print(
+            f"Computer Control MCP could not find its pairing code at {path}. Re-run the MCP Control Hub installer.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+
+    supplied = os.getenv("MCP_PAIRING_CODE", "").strip().upper()
+    if not supplied:
+        print(
+            "Computer Control MCP is waiting for a pairing code. Enter the code shown by the installer on the website before downloading the MCP config.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    if not hmac.compare_digest(supplied, expected):
+        print("Computer Control MCP pairing code rejected.", file=sys.stderr)
+        raise SystemExit(2)
+
+    print("MCP Control Hub pairing accepted for Computer Control.", file=sys.stderr)
 
 def _flag(name: str) -> bool:
     return os.getenv(name, "0").strip().lower() in {"1", "true", "yes", "on"}
@@ -69,6 +106,7 @@ def computer_status() -> dict:
         "pointer": {"x": x, "y": y},
         "screenshots_enabled": _flag("MCP_COMPUTER_ALLOW_SCREENSHOTS"),
         "actions_enabled": _flag("MCP_COMPUTER_ALLOW_ACTIONS"),
+        "paired": True,
         "failsafe": True,
         "failsafe_hint": "Move the pointer rapidly to the top-left corner to trigger PyAutoGUI FailSafeException.",
     }
@@ -198,6 +236,7 @@ def computer_scroll(clicks: int, x: int | None = None, y: int | None = None) -> 
 
 def main() -> None:
     """Console-script entrypoint."""
+    _require_pairing()
     mcp.run()
 
 

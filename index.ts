@@ -1,4 +1,5 @@
 import { createServer, type Server as HttpServer } from "node:http";
+import { readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -50,7 +51,7 @@ class BrowserRuntime {
     const common = {
       headless: false,
       viewport: { width, height },
-      args: ["--disable-infobars"],
+      args: ["--disable-infobars"] as string[],
     };
 
     try {
@@ -316,6 +317,34 @@ function viewerHtml(token: string) {
 </body></html>`;
 }
 
+function pairingFilePath() {
+  if (process.env.MCP_PAIRING_FILE) return process.env.MCP_PAIRING_FILE;
+  if (process.platform === "win32" && process.env.LOCALAPPDATA) {
+    return join(process.env.LOCALAPPDATA, "MCP-Control-Hub", "pairing-code.txt");
+  }
+  return join(homedir(), ".mcp-control-hub", "pairing-code.txt");
+}
+
+function requirePairingCode() {
+  const file = pairingFilePath();
+  let expected = "";
+  try {
+    expected = readFileSync(file, "utf8").trim().toUpperCase();
+  } catch {
+    throw new Error(`Pairing code file was not found at ${file}. Re-run the MCP Control Hub installer.`);
+  }
+
+  const supplied = String(process.env.MCP_PAIRING_CODE || "").trim().toUpperCase();
+  if (!supplied) {
+    throw new Error("Missing MCP_PAIRING_CODE. Enter the pairing code shown by the installer in the website before downloading the MCP config.");
+  }
+  if (supplied !== expected) {
+    throw new Error("Pairing code rejected. The MCP client configuration does not match this computer.");
+  }
+
+  console.error("MCP Control Hub pairing accepted for Browser Dual-Control.");
+}
+
 const runtime = new BrowserRuntime();
 
 function textResult(value: unknown) {
@@ -456,5 +485,11 @@ process.on("SIGINT", () => void runtime.close().finally(() => process.exit(0)));
 process.on("SIGTERM", () => void runtime.close().finally(() => process.exit(0)));
 
 // serveStdio keeps stdout reserved for the MCP protocol. Diagnostic logs go to stderr.
-void serveStdio(buildServer);
-console.error("Browser Dual-Control MCP is ready on stdio.");
+try {
+  requirePairingCode();
+  void serveStdio(buildServer);
+  console.error("Browser Dual-Control MCP is ready on stdio.");
+} catch (error) {
+  console.error("Browser Dual-Control MCP could not start:", error instanceof Error ? error.message : String(error));
+  process.exitCode = 2;
+}

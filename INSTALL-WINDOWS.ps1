@@ -11,6 +11,7 @@ $BrowserSource = Join-Path $SourceRoot 'servers\browser-mcp'
 $ComputerSource = Join-Path $SourceRoot 'servers\computer-mcp'
 $BrowserDir = Join-Path $InstallRoot 'servers\browser-mcp'
 $ComputerDir = Join-Path $InstallRoot 'servers\computer-mcp'
+$PairingFile = Join-Path $InstallRoot 'pairing-code.txt'
 
 if (-not (Test-Path $BrowserSource)) { throw "Missing folder: $BrowserSource" }
 if (-not (Test-Path $ComputerSource)) { throw "Missing folder: $ComputerSource" }
@@ -28,6 +29,33 @@ if (Get-Command python -ErrorAction SilentlyContinue) {
 
 Write-Host "Installing to: $InstallRoot" -ForegroundColor Yellow
 New-Item -ItemType Directory -Path (Join-Path $InstallRoot 'servers') -Force | Out-Null
+
+if (-not (Test-Path $PairingFile)) {
+  $Alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  $Bytes = New-Object byte[] 8
+  $Rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $Rng.GetBytes($Bytes)
+  } finally {
+    $Rng.Dispose()
+  }
+  $PairingCode = -join ($Bytes | ForEach-Object { $Alphabet[$_ % $Alphabet.Length] })
+  [System.IO.File]::WriteAllText($PairingFile, $PairingCode, [System.Text.Encoding]::ASCII)
+} else {
+  $PairingCode = (Get-Content $PairingFile -Raw).Trim().ToUpperInvariant()
+}
+
+# Restrict the pairing-code file to the current Windows account when possible.
+try {
+  $CurrentIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+  $Acl = New-Object System.Security.AccessControl.FileSecurity
+  $Acl.SetAccessRuleProtection($true, $false)
+  $Rule = New-Object System.Security.AccessControl.FileSystemAccessRule($CurrentIdentity, 'FullControl', 'Allow')
+  $Acl.AddAccessRule($Rule)
+  Set-Acl -Path $PairingFile -AclObject $Acl
+} catch {
+  Write-Host 'Could not tighten the pairing-code ACL automatically; continuing.' -ForegroundColor DarkYellow
+}
 
 if (Test-Path $BrowserDir) { Remove-Item $BrowserDir -Recurse -Force }
 if (Test-Path $ComputerDir) { Remove-Item $ComputerDir -Recurse -Force }
@@ -67,8 +95,29 @@ try {
   Pop-Location
 }
 
+$ShowCodeBat = Join-Path $InstallRoot 'SHOW-PAIRING-CODE.bat'
+$ShowCodeContent = @"
+@echo off
+echo.
+echo MCP Control Hub pairing code:
+type "%~dp0pairing-code.txt"
+echo.
+echo.
+pause
+"@
+[System.IO.File]::WriteAllText($ShowCodeBat, $ShowCodeContent, [System.Text.Encoding]::ASCII)
+
 Write-Host ''
 Write-Host 'Installation completed successfully.' -ForegroundColor Green
 Write-Host "Permanent install folder: $InstallRoot" -ForegroundColor Gray
-Write-Host 'You can now download an MCP config from the website. It uses the permanent install folder automatically.' -ForegroundColor Green
+Write-Host ''
+Write-Host '=========================================' -ForegroundColor Cyan
+Write-Host '          YOUR PAIRING CODE' -ForegroundColor Cyan
+Write-Host ''
+Write-Host "              $PairingCode" -ForegroundColor Yellow
+Write-Host ''
+Write-Host '=========================================' -ForegroundColor Cyan
+Write-Host ''
+Write-Host 'Enter this code on the MCP Control Hub website before downloading your MCP config.' -ForegroundColor Green
+Write-Host "You can show it again later by opening: $ShowCodeBat" -ForegroundColor Gray
 Write-Host ''
