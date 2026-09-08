@@ -1,0 +1,11 @@
+# Keep the Vercel deployment purely static.
+# MCP server source and local installers are distributed through the ZIP files in /downloads.
+servers/
+apps/
+INSTALL-WINDOWS.ps1
+INSTALL-WINDOWS.bat
+INSTALL-MACOS.sh
+INSTALL-LINUX.sh
+README.md
+SECURITY.md
+LICENSE
