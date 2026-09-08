@@ -45,11 +45,31 @@ function normalizePairingCode(value: string) {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-function getPairingCodeForSession(sessionToken: string) {
-  const session = sessions.get(sessionToken);
-  if (!session) throw new Error("This plugin session is not paired. Pair the computer first.");
-  session.lastUsed = Date.now();
-  return session.pairingCode;
+function getPairingCodeForSession(sessionToken?: string) {
+  if (sessionToken) {
+    const session = sessions.get(sessionToken);
+    if (session) {
+      session.lastUsed = Date.now();
+      return session.pairingCode;
+    }
+
+    // Some MCP clients pass the pairing code back instead of structuredContent.
+    const possiblePairingCode = normalizePairingCode(sessionToken);
+    if (companions.get(possiblePairingCode)?.socket.readyState === WebSocket.OPEN) {
+      return possiblePairingCode;
+    }
+  }
+
+  // Personal installations normally have one online companion. Let clients
+  // continue after pair_device even when they do not retain its session token.
+  const onlineCompanions = [...companions.values()].filter(
+    (companion) => companion.socket.readyState === WebSocket.OPEN,
+  );
+  if (onlineCompanions.length === 1) return onlineCompanions[0].code;
+  if (onlineCompanions.length === 0) {
+    throw new Error("The MCP Control Hub Companion is offline. Start it and try again.");
+  }
+  throw new Error("More than one companion is online. Pair this chat again before controlling a computer.");
 }
 
 async function sendCommand(pairingCode: string, operation: string, args: Record<string, unknown>) {
@@ -151,7 +171,7 @@ function createPluginServer() {
     {
       title: "Check control status",
       description: "Use this when the user wants to know whether their paired computer is currently connected.",
-      inputSchema: { session_token: z.string() },
+      inputSchema: { session_token: z.string().optional() },
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
@@ -165,7 +185,7 @@ function createPluginServer() {
     },
   );
 
-  const sessionSchema = { session_token: z.string() };
+  const sessionSchema = { session_token: z.string().optional() };
 
   registerAppTool(
     server,
@@ -189,7 +209,7 @@ function createPluginServer() {
     {
       title: "Navigate Chrome",
       description: "Use this when the user wants the paired Chrome browser to open a URL.",
-      inputSchema: { session_token: z.string(), url: z.string().url() },
+      inputSchema: { session_token: z.string().optional(), url: z.string().url() },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
@@ -205,7 +225,7 @@ function createPluginServer() {
     {
       title: "Click in Chrome",
       description: "Use this when the user wants to click a visible point in the controlled Chrome page.",
-      inputSchema: { session_token: z.string(), x: z.number().nonnegative(), y: z.number().nonnegative() },
+      inputSchema: { session_token: z.string().optional(), x: z.number().nonnegative(), y: z.number().nonnegative() },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
@@ -221,7 +241,7 @@ function createPluginServer() {
     {
       title: "Type in Chrome",
       description: "Use this when the user wants text typed into the currently focused field in controlled Chrome.",
-      inputSchema: { session_token: z.string(), text: z.string().max(10_000) },
+      inputSchema: { session_token: z.string().optional(), text: z.string().max(10_000) },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
@@ -283,7 +303,7 @@ function createPluginServer() {
     {
       title: "Move mouse",
       description: "Use this when the user wants the AI to move the mouse pointer on the paired computer.",
-      inputSchema: { session_token: z.string(), x: z.number().nonnegative(), y: z.number().nonnegative(), duration: z.number().min(0).max(5).optional() },
+      inputSchema: { session_token: z.string().optional(), x: z.number().nonnegative(), y: z.number().nonnegative(), duration: z.number().min(0).max(5).optional() },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
@@ -299,7 +319,7 @@ function createPluginServer() {
     {
       title: "Click mouse",
       description: "Use this when the user wants the AI to click on the paired computer.",
-      inputSchema: { session_token: z.string(), button: z.enum(["left", "right", "middle"]).default("left"), clicks: z.number().int().min(1).max(3).default(1) },
+      inputSchema: { session_token: z.string().optional(), button: z.enum(["left", "right", "middle"]).default("left"), clicks: z.number().int().min(1).max(3).default(1) },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
@@ -315,7 +335,7 @@ function createPluginServer() {
     {
       title: "Type on the computer",
       description: "Use this when the user wants the AI to type text into the currently focused desktop application.",
-      inputSchema: { session_token: z.string(), text: z.string().max(10_000), interval: z.number().min(0).max(1).optional() },
+      inputSchema: { session_token: z.string().optional(), text: z.string().max(10_000), interval: z.number().min(0).max(1).optional() },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
       _meta: { ui: { resourceUri: WIDGET_URI } },
     },
