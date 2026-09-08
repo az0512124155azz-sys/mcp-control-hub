@@ -149,7 +149,7 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
 .segmented button, .client-tabs button { border: 0; cursor: pointer; color: #66707c; background: transparent; }
 .segmented button { padding: 8px 14px; border-radius: 7px; font-size: 13px; font-weight: 680; }
 .segmented button.active { background: white; color: #11141a; box-shadow: 0 2px 10px rgba(29,35,46,.08); }
-.client-tabs { display: flex; gap: 8px; margin-top: 18px; border-bottom: 1px solid var(--line); }
+.client-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; border-bottom: 1px solid var(--line); }
 .client-tabs button { padding: 13px 14px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-weight: 700; }
 .client-tabs button.active { color: var(--blue); border-bottom-color: var(--blue); }
 .path-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 14px; margin-top: 22px; }
@@ -293,7 +293,7 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
       <div class="flow">
         <div class="flow-node"><small>אדם</small><strong>המשתמש מבקש משימה</strong><span>למשל: פתח אתר, מלא טופס, פתח Blender</span></div>
         <div class="flow-arrow">←</div>
-        <div class="flow-node flow-host"><small>AI Host</small><strong>Claude / Cursor / VS Code</strong><span>בוחר Tool מתאים ושולח בקשת MCP</span></div>
+        <div class="flow-node flow-host"><small>AI Host</small><strong>GPT / Codex / Claude / Cursor / IDEs</strong><span>בוחר Tool מתאים ושולח בקשת MCP</span></div>
         <div class="flow-arrow">←</div>
         <div class="flow-node"><small>Local MCP</small><strong>Browser או Computer</strong><span>מבצע פעולה מקומית ומחזיר תוצאה</span></div>
       </div>
@@ -346,8 +346,8 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
     <section class="section shell" id="install">
       <div class="section-heading">
         <span class="kicker">02 · Interactive install</span>
-        <h2>בחר Client ומערכת הפעלה — וקבל JSON מוכן</h2>
-        <p>הכנס את הנתיב שבו שמרת את הפרויקט. ההגדרות והפקודות מתעדכנות אוטומטית.</p>
+        <h2>בחר AI ומערכת הפעלה — וקבל הגדרה מוכנה</h2>
+        <p>GPT, Codex, Claude, Cursor, VS Code, Windsurf, Cline ועוד. הכנס את נתיב הפרויקט והאתר ייצור עבורך את ההגדרה המתאימה.</p>
       </div>
 
       <div class="guide-shell">
@@ -357,9 +357,14 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
         </div>
 
         <div class="client-tabs" role="tablist" aria-label="MCP clients">
+          <button type="button" data-client="chatgpt">GPT / ChatGPT</button>
+          <button type="button" data-client="codex">Codex Desktop / IDE</button>
           <button type="button" data-client="claude" class="active">Claude Desktop</button>
           <button type="button" data-client="cursor">Cursor</button>
           <button type="button" data-client="vscode">VS Code</button>
+          <button type="button" data-client="windsurf">Windsurf</button>
+          <button type="button" data-client="cline">Cline</button>
+          <button type="button" data-client="terminal">AI בטרמינל</button>
         </div>
 
         <div class="path-grid">
@@ -382,7 +387,7 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
             <pre><code id="install-code"></code></pre>
           </div>
           <div class="code-card">
-            <div class="code-head"><span>2 · MCP config</span><button class="copy-button" type="button" data-copy-target="config-code">העתק</button></div>
+            <div class="code-head"><span>2 · MCP config / setup</span><button class="copy-button" type="button" data-copy-target="config-code">העתק</button></div>
             <pre><code id="config-code"></code></pre>
           </div>
         </div>
@@ -391,7 +396,7 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
           <li><strong>התקן ובנה.</strong> הרץ את פקודות ההתקנה.</li>
           <li><strong>הדבק את ה-JSON.</strong> שמור אותו בקובץ שמופיע למעלה.</li>
           <li><strong>אשר הרשאות מערכת.</strong> ב-macOS אשר Accessibility ו-Screen Recording; ב-Windows ודא שהאפליקציה אינה חסומה.</li>
-          <li><strong>הפעל מחדש את Client ה-AI.</strong> לאחר מכן בקש מה-AI לבדוק את שני שרתי ה-MCP.</li>
+          <li><strong>הפעל מחדש את Client ה-AI.</strong> לאחר מכן בקש מה-AI לבדוק אילו כלי MCP זמינים. ב-AI שרץ בטרמינל האתר מחבר בכוונה רק את Computer Control.</li>
         </ol>
       </div>
     </section>
@@ -447,11 +452,11 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
         <h2>הפריסה עכשיו פשוטה לגמרי</h2>
       </div>
       <div class="deploy-map">
-        <div class="cloud-card"><small>Vercel / Netlify</small><strong>Static HTML</strong><span>index.html + styles.css + script.js בשורש</span></div>
+        <div class="cloud-card"><small>Vercel / Netlify</small><strong>Static HTML</strong><span>index.html יחיד בשורש</span></div>
         <div class="deploy-line">← GitHub</div>
         <div class="local-card"><small>Local machine</small><strong>Browser MCP + Computer MCP</strong><span>נשארים מקומיים ולא נפרסים לענן</span></div>
       </div>
-      <p class="deploy-note"><strong>אין Root Directory, אין npm build ואין Next.js.</strong> מחברים את ה-repository ל-Vercel או Netlify ולוחצים Deploy. האתר עצמו הוא קבצים סטטיים רגילים.</p>
+      <p class="deploy-note"><strong>אין Root Directory, אין npm build ואין Next.js.</strong> מחברים את ה-repository ל-Vercel או Netlify ולוחצים Deploy. האתר עצמו הוא קובץ HTML סטטי רגיל עם CSS ו-JavaScript מוטמעים.</p>
     </section>
 
     <section class="section shell faq-section">
@@ -459,6 +464,7 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
       <details><summary>האם ה-AI יכול לעבוד ב-Blender או Fusion 360?</summary><p>כן, ברמת מסך וקלט: צילום מסך → ניתוח → עכבר/מקלדת → צילום חוזר. לדיוק גבוה יותר אפשר לשלב API או MCP ייעודי של התוכנה.</p></details>
       <details><summary>האם המשתמש יכול להזיז את העכבר בזמן שה-AI עובד?</summary><p>כן. אין נעילת input, ולכן אפשר להתערב בכל רגע.</p></details>
       <details><summary>למה Chrome משתמש בפרופיל נפרד?</summary><p>כדי לצמצם חשיפה לעוגיות, sessions ונתונים אישיים מהדפדפן היומיומי.</p></details>
+      <details><summary>אילו סוגי AI נתמכים?</summary><p>האתר כולל GPT / ChatGPT, Codex, Claude Desktop, Cursor, VS Code, Windsurf, Cline ומצב AI בטרמינל. במצב טרמינל נחשף רק Computer Control MCP; בשאר הלקוחות המקומיים אפשר לחבר את שני השרתים.</p></details>
     </section>
 
     <footer class="footer shell">
@@ -469,18 +475,14 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
   <script>
 (() => {
   const clients = {
-    claude: {
-      label: "Claude Desktop",
-      note: "Claude Desktop יכול להפעיל שרתי MCP מקומיים דרך stdio. קובץ ההגדרות מחבר בין Claude לבין שני השרתים.",
-    },
-    cursor: {
-      label: "Cursor",
-      note: "Cursor קורא mcp.json גלובלי או פרויקטלי ומפעיל שרתי stdio כתהליכים מקומיים.",
-    },
-    vscode: {
-      label: "VS Code",
-      note: "VS Code משתמש במפתח servers ולא ב-mcpServers. אפשר לשמור קובץ פרויקטלי ב-.vscode/mcp.json.",
-    },
+    chatgpt: { label: "GPT / ChatGPT", note: "ChatGPT תומך ב-MCP דרך Apps / Developer Mode. מאחר ש-ChatGPT לא מתחבר ישירות לשרת stdio מקומי, משתמשים ב-Secure MCP Tunnel או בשער MCP מרוחק. לאחר החיבור אפשר לחשוף את Browser MCP ואת Computer MCP לפי ההרשאות של סביבת העבודה." },
+    codex: { label: "Codex Desktop / IDE", note: "Codex ב-Desktop או ב-IDE יכול לעבוד עם שרתי MCP מקומיים. כאן הוא מקבל את שני השרתים: Browser Dual-Control וגם Computer Control." },
+    claude: { label: "Claude Desktop", note: "Claude Desktop יכול להפעיל שרתי MCP מקומיים דרך stdio. קובץ ההגדרות מחבר בין Claude לבין שני השרתים." },
+    cursor: { label: "Cursor", note: "Cursor קורא mcp.json גלובלי או פרויקטלי ומפעיל שרתי stdio כתהליכים מקומיים." },
+    vscode: { label: "VS Code", note: "VS Code משתמש במפתח servers ולא ב-mcpServers. אפשר לשמור קובץ פרויקטלי ב-.vscode/mcp.json." },
+    windsurf: { label: "Windsurf", note: "Windsurf יכול להפעיל שרתי MCP מקומיים. ההגדרה כאן כוללת את שני השרתים." },
+    cline: { label: "Cline", note: "Cline הוא Agent ל-IDE עם תמיכת MCP. ההגדרה כאן מיועדת לשני השרתים המקומיים." },
+    terminal: { label: "AI בטרמינל", note: "מצב מוגבל בכוונה: Claude Code, Codex CLI, Gemini CLI, OpenCode וכל AI אחר שרץ בטרמינל יקבל רק את Computer Control MCP. ה-Browser MCP לא ייכלל בהגדרה הזאת." },
   };
 
   let os = "windows";
@@ -501,13 +503,13 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
     return `${root.replace(/\/+$/, "")}/${tail}`;
   }
 
-  function makeEntries(currentOs, root) {
+  function makeEntries(currentOs, root, currentClient = client) {
     const join = currentOs === "windows" ? winJoin : macJoin;
     const python = currentOs === "windows"
       ? join(root, "servers/computer-mcp/.venv/Scripts/python.exe")
       : join(root, "servers/computer-mcp/.venv/bin/python");
 
-    return {
+    const allEntries = {
       "browser-dual-control": {
         type: "stdio",
         command: "node",
@@ -524,39 +526,71 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
         },
       },
     };
+
+    if (currentClient === "terminal") {
+      return { "computer-control": allEntries["computer-control"] };
+    }
+    return allEntries;
+  }
+
+  function makeToml(entries) {
+    const lines = [];
+    for (const [name, value] of Object.entries(entries)) {
+      lines.push(`[mcp_servers.${name}]`);
+      lines.push(`command = ${JSON.stringify(value.command)}`);
+      lines.push(`args = [${(value.args || []).map(v => JSON.stringify(v)).join(", ")}]`);
+      if (value.env) {
+        const env = Object.entries(value.env).map(([k,v]) => `${k} = ${JSON.stringify(v)}`).join(", ");
+        lines.push(`env = { ${env} }`);
+      }
+      lines.push("");
+    }
+    return lines.join("\n").trim();
   }
 
   function makeConfig(currentClient, currentOs, root) {
-    const entries = makeEntries(currentOs, root);
+    const entries = makeEntries(currentOs, root, currentClient);
 
-    if (currentClient === "vscode") {
-      return JSON.stringify({ servers: entries }, null, 2);
+    if (currentClient === "chatgpt") {
+      return `ChatGPT / GPT setup
+
+1. פתח Settings → Apps → Advanced Settings והפעל Developer Mode.
+2. צור Custom MCP App.
+3. ChatGPT לא מתחבר ישירות ל-stdio מקומי, לכן חבר את שני השרתים דרך Secure MCP Tunnel או MCP gateway מרוחק.
+4. חשוף את Browser MCP ואת Computer MCP דרך ה-Tunnel, ובחר הרשאות מתאימות.
+
+השרתים המקומיים נשארים על המחשב שלך; ה-Tunnel הוא שכבת החיבור ל-ChatGPT.`;
     }
 
-    if (currentClient === "cursor") {
-      return JSON.stringify({ mcpServers: entries }, null, 2);
+    if (currentClient === "codex") return makeToml(entries);
+
+    if (currentClient === "terminal") {
+      const terminalEntries = Object.fromEntries(Object.entries(entries).map(([name, value]) => {
+        const copy = { ...value }; delete copy.type; return [name, copy];
+      }));
+      return `# Terminal AI — Computer Control only
+# Browser MCP לא נכלל בכוונה.
+
+${JSON.stringify({ mcpServers: terminalEntries }, null, 2)}`;
     }
 
-    const claudeEntries = Object.fromEntries(
-      Object.entries(entries).map(([name, value]) => {
-        const copy = { ...value };
-        delete copy.type;
-        return [name, copy];
-      })
-    );
+    if (currentClient === "vscode") return JSON.stringify({ servers: entries }, null, 2);
+    if (["cursor", "windsurf", "cline"].includes(currentClient)) return JSON.stringify({ mcpServers: entries }, null, 2);
 
-    return JSON.stringify({ mcpServers: claudeEntries }, null, 2);
+    const genericEntries = Object.fromEntries(Object.entries(entries).map(([name, value]) => {
+      const copy = { ...value }; delete copy.type; return [name, copy];
+    }));
+    return JSON.stringify({ mcpServers: genericEntries }, null, 2);
   }
 
   function configPath(currentClient, currentOs) {
-    if (currentClient === "claude") {
-      return currentOs === "windows"
-        ? "%APPDATA%\\Claude\\claude_desktop_config.json"
-        : "~/Library/Application Support/Claude/claude_desktop_config.json";
-    }
-    if (currentClient === "cursor") {
-      return currentOs === "windows" ? "%USERPROFILE%\\.cursor\\mcp.json" : "~/.cursor/mcp.json";
-    }
+    if (currentClient === "chatgpt") return "ChatGPT → Settings → Apps → Advanced Settings → Developer Mode";
+    if (currentClient === "codex") return currentOs === "windows" ? "%USERPROFILE%\\.codex\\config.toml" : "~/.codex/config.toml";
+    if (currentClient === "claude") return currentOs === "windows" ? "%APPDATA%\\Claude\\claude_desktop_config.json" : "~/Library/Application Support/Claude/claude_desktop_config.json";
+    if (currentClient === "cursor") return currentOs === "windows" ? "%USERPROFILE%\\.cursor\\mcp.json" : "~/.cursor/mcp.json";
+    if (currentClient === "windsurf") return currentOs === "windows" ? "%USERPROFILE%\\.codeium\\windsurf\\mcp_config.json" : "~/.codeium/windsurf/mcp_config.json";
+    if (currentClient === "cline") return "Cline → MCP Servers → Configure MCP Servers";
+    if (currentClient === "terminal") return "קובץ ה-MCP של כלי הטרמינל שבחרת — Computer Control בלבד";
     return "<your-project>/.vscode/mcp.json";
   }
 
@@ -576,16 +610,26 @@ code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, m
   }
 
   function renderExtra() {
+    if (client === "chatgpt") {
+      clientExtraEl.innerHTML = `<div class="warning-box"><strong>חשוב לגבי GPT / ChatGPT:</strong> החיבור אינו stdio מקומי ישיר. ChatGPT מתחבר ל-MCP מרוחק, ולכן עבור שרת שרץ על המחשב משתמשים ב-Secure MCP Tunnel או gateway תואם.</div>`;
+      return;
+    }
+    if (client === "terminal") {
+      clientExtraEl.innerHTML = `<div class="warning-box"><strong>מצב Terminal מוגבל:</strong> רק <code>computer-control</code> נשלח ל-AI. השרת <code>browser-dual-control</code> לא נכלל בכלל.</div>`;
+      return;
+    }
+    if (client === "codex") {
+      clientExtraEl.innerHTML = `<div class="info-box"><strong>Codex:</strong> ההגדרה נוצרת בפורמט TOML לקובץ <code>config.toml</code>, לא JSON.</div>`;
+      return;
+    }
     if (client === "claude" && os === "windows") {
       clientExtraEl.innerHTML = `<div class="warning-box"><strong>הערת Windows:</strong> אם Claude לא מוצא את הקובץ, פתח את הגדרות ה-MCP מתוך Claude עצמו ובדוק את הנתיב שהוא יוצר.</div>`;
       return;
     }
-
     if (client === "vscode") {
       clientExtraEl.innerHTML = `<div class="info-box">להגדרה גלובלית ב-VS Code אפשר להשתמש ב-Command Palette ולפתוח את תצורת MCP. לפרויקט משותף, <code dir="ltr">.vscode/mcp.json</code> הוא הנתיב הפשוט ביותר.</div>`;
       return;
     }
-
     clientExtraEl.innerHTML = "";
   }
 
