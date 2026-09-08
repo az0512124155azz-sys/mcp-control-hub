@@ -26,7 +26,7 @@ python -m venv $Venv
 $Launcher = @'
 @echo off
 setlocal
-if "%MCP_CONTROL_HUB_PLUGIN_WS%"=="" set "MCP_CONTROL_HUB_PLUGIN_WS=ws://127.0.0.1:8787/companion"
+if "%MCP_CONTROL_HUB_PLUGIN_WS%"=="" set "MCP_CONTROL_HUB_PLUGIN_WS=wss://mcp-control-hub-plugin.onrender.com/companion"
 "%~dp0.venv\Scripts\python.exe" "%~dp0companion.py"
 pause
 '@
@@ -38,4 +38,4 @@ Write-Host "Folder: $InstallRoot"
 Write-Host 'Start it with:'
 Write-Host (Join-Path $InstallRoot 'START-COMPANION.cmd') -ForegroundColor Yellow
 Write-Host ''
-Write-Host 'IMPORTANT: before public/remote use, set MCP_CONTROL_HUB_PLUGIN_WS to your deployed wss://.../companion URL.' -ForegroundColor Yellow
+Write-Host 'The Companion is preconfigured to connect to the deployed MCP Control Hub Plugin.' -ForegroundColor Green
